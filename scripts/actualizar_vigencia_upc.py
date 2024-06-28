@@ -1,9 +1,10 @@
 import tempfile
 import pathlib
+from tkinter import filedialog
 import zipfile
 import pandas as pd
 from sqlalchemy import create_engine
-from operaciones_bdoracle import actualizar_datos_oracle
+from operaciones_bdoracle import actualizar_datos_oracle, conectar_base_oracle
 
 
 def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio_actualizado: str) -> None:
@@ -69,3 +70,12 @@ def actualizar_vigencia_upc(engine: create_engine, zip_path: pathlib.Path) -> No
 
 def codigo_duplicado(df: pd.DataFrame, columna: str) -> int:
     return df.loc[df.duplicated(subset=columna)].shape[0]
+
+
+if __name__ == '__main__':
+    engine = conectar_base_oracle()
+
+    ruta_zip = pathlib.Path(filedialog.askopenfilename(
+        initialdir=r'G:\Mi unidad\Mis Actividades\Actualizacion Parametricas UPC\Vigencia_UPC'))
+
+    actualizar_vigencia_upc(engine, ruta_zip)
