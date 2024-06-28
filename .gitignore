@@ -4,3 +4,4 @@ config.ini
 # Omitir carpetas
 /downloads
 /extracted_files
+/scripts/__pycache__
