@@ -1,0 +1,6 @@
+# Omitir archivos de configuracion
+config.ini
+
+# Omitir carpetas
+/downloads
+/extracted_files
