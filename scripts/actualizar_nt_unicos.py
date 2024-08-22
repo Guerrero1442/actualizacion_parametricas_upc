@@ -1,3 +1,4 @@
+import logging
 import pathlib
 import pandas as pd
 from tkinter import filedialog
@@ -71,6 +72,7 @@ nombre_tabla_nt_unicos: str = 'tbl_ope_nt_unicos_2024'
 
 def actualizar_nt_unicos(engine, ruta_nt_unicos):
     df = pd.read_excel(ruta_nt_unicos, dtype='str')
+    logging.info(f'Procesando archivo {ruta_nt_unicos.name}')
 
     if df.loc[df.duplicated(subset=['Codigo OSI'])].shape[0] > 0:
         print('Hay duplicados en el archivo')

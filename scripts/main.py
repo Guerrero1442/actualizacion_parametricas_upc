@@ -1,5 +1,7 @@
+import logging
 from pathlib import Path
 from tkinter import filedialog
+from log import setup_logging
 from sqlalchemy import create_engine
 from operaciones_bdoracle import conectar_base_oracle
 from actualizar_vigencia_upc import actualizar_vigencia_upc
@@ -88,4 +90,5 @@ def seleccionar_carpeta(titulo: str, directorio_inicial: str) -> Path:
 
 
 if __name__ == '__main__':
+    setup_logging()
     main()

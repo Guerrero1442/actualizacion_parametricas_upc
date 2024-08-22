@@ -3,6 +3,7 @@ import pathlib
 from tkinter import filedialog
 import zipfile
 import pandas as pd
+import logging
 from sqlalchemy import create_engine
 from operaciones_bdoracle import actualizar_datos_oracle, conectar_base_oracle
 
@@ -11,6 +12,7 @@ def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio
     nombre_archivo: str = archivo.name
 
     if nombre_archivo.startswith(f'{anio_actualizado}_INSUMOS'):
+        logging.info(f'Procesando archivo {nombre_archivo}')
         df = pd.read_excel(archivo, skiprows=4, engine='pyxlsb')
         if codigo_duplicado(df, 'CÓDIGO') == 0:
             df.drop(columns=['AÑO_VIGENCIA', ' '],
@@ -21,6 +23,7 @@ def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio
                 engine, df, f'tbl_suf_insumos_{anio_actualizado}')
 
     elif nombre_archivo.startswith(f'{anio_actualizado}_TR_CIE10'):
+        logging.info(f'Procesando archivo {nombre_archivo}')
         df = pd.read_excel(archivo, skiprows=4, engine='pyxlsb')
         if codigo_duplicado(df, 'CODIGO') == 0:
             df.rename(columns={
@@ -31,6 +34,7 @@ def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio
                 engine, df, f'tbl_suf_cie10_{anio_actualizado}')
 
     elif nombre_archivo.startswith(f'{anio_actualizado}_TR_CUPS') and 'COBERTURA' in nombre_archivo:
+        logging.info(f'Procesando archivo {nombre_archivo}')
         df = pd.read_excel(archivo, skiprows=4, engine='pyxlsb')
         if codigo_duplicado(df, 'CODIGO') == 0:
             df.drop(columns=['AÑO_VIGENCIA', ' '],
@@ -41,6 +45,7 @@ def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio
                 engine, df, f'tbl_suf_cups_{anio_actualizado}')
 
     elif nombre_archivo.startswith(f'{anio_actualizado}_REPS'):
+        logging.info(f'Procesando archivo {nombre_archivo}')
         df = pd.read_excel(archivo, skiprows=4, engine='pyxlsb')
         if codigo_duplicado(df, 'CÓDIGO HABILITACION') == 0:
             df.drop(columns=['AÑO_VIGENCIA'], inplace=True, errors='ignore')
@@ -55,6 +60,7 @@ def actualizar_vigencia_upc(engine: create_engine, zip_path: pathlib.Path) -> No
     anio_actualizado = input('Ingrese el año de actualización: ')
 
     with zipfile.ZipFile(zip_path, 'r') as archivo_zip:
+        logging.info(f'Extrayendo archivos de {zip_path}')
         archivos = archivo_zip.namelist()
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -65,7 +71,7 @@ def actualizar_vigencia_upc(engine: create_engine, zip_path: pathlib.Path) -> No
             for archivo in archivos:
                 procesar_archivo_vigencia(engine, archivo, anio_actualizado)
 
-    print('Actualización de vigencia UPC exitosa')
+    logging.info('Proceso de actualización de vigencia UPC finalizado')
 
 
 def codigo_duplicado(df: pd.DataFrame, columna: str) -> int:

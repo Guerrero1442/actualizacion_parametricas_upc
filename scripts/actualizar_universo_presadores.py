@@ -2,6 +2,7 @@ import pathlib
 import tempfile
 from tkinter import filedialog
 import zipfile
+import logging
 
 import pandas as pd
 from sqlalchemy import create_engine
@@ -41,13 +42,18 @@ def actualizar_prestadores(engine: create_engine, ruta_prestadores: pathlib.Path
 
     periodo = input('Ingrese el periodo de actualización (YYYYMM): ')
 
+    logging.info(f'Actualizando prestadores para el periodo {periodo}')
+
     with zipfile.ZipFile(ruta_prestadores, 'r') as zip_file:
         with tempfile.TemporaryDirectory() as temp_dir:
             zip_file.extractall(temp_dir)
-            archivos = [archivo for archivo in pathlib.Path(
-                temp_dir).rglob('*.xlsx')]
-            df_prestadores = pd.concat([pd.read_excel(archivo, sheet_name='E.P.S Sanitas',
-                                       skiprows=2, dtype='str', usecols=columnas_prestadores) for archivo in archivos])
+            archivo = pathlib.Path(temp_dir).rglob('*.xlsx')
+            try:
+                logging.info(f'Leyendo archivo {archivo}')
+                df_prestadores = pd.read_excel(archivo, sheet_name='E.P.S Sanitas',
+                                               skiprows=2, dtype='str', usecols=columnas_prestadores)
+            except Exception as e:
+                logging.error(f'error al leer el archivo de prestadores {e}')
 
     df_regionales = pd.read_csv(carpeta_regionales, sep='|', dtype='str')
 
@@ -100,9 +106,10 @@ def actualizar_prestadores(engine: create_engine, ruta_prestadores: pathlib.Path
 
     creacion_tabla_actualizada(
         engine, df_prestadores, nombre_tabla_prestadores, periodo)
-    
+
     # Configuraciones para insertar en BD GENERAL
-    df_prestadores.rename(columns={'CODIGO DE HABILITACION': 'CODIGO DE HABILITACION2', 'TIPO PERSONA': 'TIPO_PERSONA'}, inplace=True)
+    df_prestadores.rename(columns={
+                          'CODIGO DE HABILITACION': 'CODIGO DE HABILITACION2', 'TIPO PERSONA': 'TIPO_PERSONA'}, inplace=True)
     df_prestadores.drop(columns=['DESCRIPCION ESPECIALIDAD'], inplace=True)
 
     actualizar_datos_oracle(engine, df_prestadores, nombre_tabla_prestadores)

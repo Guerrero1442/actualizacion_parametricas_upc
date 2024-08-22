@@ -1,3 +1,4 @@
+import logging
 from tkinter import filedialog
 from sqlalchemy import create_engine
 import pathlib
@@ -20,6 +21,7 @@ tablas: dict[str, str] = {
 def actualizar_compensados(engine: create_engine, ruta_compensados: pathlib.Path) -> None:
     # Preguntar periodo de actualizacion
     periodo = input("Ingrese el periodo de actualización (YYYYMM): ")
+    logging.info(f'Actualizando compensados para el periodo {periodo}')
 
     archivos = [archivo for archivo in ruta_compensados.iterdir(
     ) if archivo.is_file() and archivo.suffix == '.txt']
@@ -28,6 +30,7 @@ def actualizar_compensados(engine: create_engine, ruta_compensados: pathlib.Path
 
     for archivo in archivos:
         if liquidado[0] in archivo.name or liquidado[1] in archivo.name:
+            logging.info(f'Procesando archivo {archivo.name}')
             df: pd.DataFrame = pd.read_csv(
                 archivo, sep=',', dtype='str', encoding='latin1')
             df.drop(columns=['CAUSAL_DE_RESTITUCION',
@@ -36,12 +39,14 @@ def actualizar_compensados(engine: create_engine, ruta_compensados: pathlib.Path
 
     df_liquidado = pd.concat(df_liquidados)
 
-    creacion_tabla_actualizada(engine, df_liquidado, tablas['liquidado'], periodo)
+    creacion_tabla_actualizada(
+        engine, df_liquidado, tablas['liquidado'], periodo)
 
     df_cotizantes: list[pd.DataFrame] = []
 
     for archivo in archivos:
         if cotizante[0] in archivo.name or cotizante[1] in archivo.name:
+            logging.info(f'Procesando archivo {archivo.name}')
             df = pd.read_csv(archivo, sep=',', dtype='str', encoding='latin1')
             df.rename(columns={'DEPARTAMENTO': 'COD_DEP', 'MUNICIPIO': 'COD_MUN',
                       'EXONERACIÓN': 'EXONERACION', 'CENTRO_COSTO': 'CENTRO_DE_COSTO'}, inplace=True)
@@ -49,12 +54,14 @@ def actualizar_compensados(engine: create_engine, ruta_compensados: pathlib.Path
 
     df_cotizante = pd.concat(df_cotizantes)
 
-    creacion_tabla_actualizada(engine, df_cotizante, tablas['cotizante'], periodo)
+    creacion_tabla_actualizada(
+        engine, df_cotizante, tablas['cotizante'], periodo)
 
     df_beneficiarios: list[pd.DataFrame] = []
 
     for archivo in archivos:
         if beneficiario[0] in archivo.name or beneficiario[1] in archivo.name:
+            logging.info(f'Procesando archivo {archivo.name}')
             df = pd.read_csv(archivo, sep=',', dtype='str', encoding='latin1')
             df.rename(columns={'DEPARTAMENTO': 'COD_DEP', 'MUNICIPIO': 'COD_MUN',
                       'EXONERACIÓN': 'EXONERACION'}, inplace=True)
@@ -64,8 +71,6 @@ def actualizar_compensados(engine: create_engine, ruta_compensados: pathlib.Path
 
     creacion_tabla_actualizada(
         engine, df_beneficiario, tablas['beneficiario'], periodo)
-
-
 
 
 if __name__ == '__main__':
