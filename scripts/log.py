@@ -2,7 +2,7 @@ import logging
 import os
 
 
-def setup_logging(log_file=r"D:\Keralty scripts\Automatizaciones_python\actualizacion_parametricas_upc\scripts\logs\actualizacion_parametricas.log"):
+def setup_logging(log_file=r"D:\Keralty scripts\automatizaciones_python\actualizacion_parametricas_upc\scripts\logs\actualizacion_parametricas.log"):
 
     # asegurarse de que el directorio logs exista
     os.makedirs(os.path.dirname(log_file), exist_ok=True)

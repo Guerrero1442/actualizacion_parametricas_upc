@@ -75,11 +75,13 @@ def actualizar_nt_unicos(engine, ruta_nt_unicos):
     logging.info(f'Procesando archivo {ruta_nt_unicos.name}')
 
     if df.loc[df.duplicated(subset=['Codigo OSI'])].shape[0] > 0:
-        print('Hay duplicados en el archivo')
+        logging.info(f'Hay valores duplicados en el archivo {ruta_nt_unicos.name} la operación se cancelará')
+        print(df['Codigo OSI'].loc[df.duplicated(subset=['Codigo OSI'])])
         return
 
     if df.loc[df['Codigo OSI'].isnull()].shape[0] > 0:
-        print('Hay valores nulos en el archivo')
+        logging.info(f'Hay valores nulos en el archivo {ruta_nt_unicos.name} la operación se cancelará')
+        print(df.loc[df['Codigo OSI'].isnull()].shape[0])
         return
 
     for col in df.columns:

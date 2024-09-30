@@ -10,8 +10,8 @@ from sqlalchemy import create_engine
 from operaciones_bdoracle import actualizar_datos_oracle, conectar_base_oracle, creacion_tabla_actualizada
 
 # Constantes
-nombre_tabla_prestadores = 'tbl_ope_universo_prestadores'
-columnas_prestadores = [
+NOMBRE_TABLA_PRESTADORES = 'tbl_ope_universo_prestadores'
+COLUMNAS_PRESTADORES = [
     'DESCRIPCION PLAN',
     'FORMA CONTRATACION',
     'NUM ID',
@@ -51,7 +51,7 @@ def actualizar_prestadores(engine: create_engine, ruta_prestadores: pathlib.Path
             try:
                 logging.info(f'Leyendo archivo {archivo}')
                 df_prestadores = pd.read_excel(archivo, sheet_name='E.P.S Sanitas',
-                                               skiprows=2, dtype='str', usecols=columnas_prestadores)
+                                               skiprows=2, dtype='str', usecols=COLUMNAS_PRESTADORES)
             except Exception as e:
                 logging.error(f'error al leer el archivo de prestadores {e}')
 
@@ -105,14 +105,14 @@ def actualizar_prestadores(engine: create_engine, ruta_prestadores: pathlib.Path
     df_prestadores.rename(columns=column_renames, inplace=True)
 
     creacion_tabla_actualizada(
-        engine, df_prestadores, nombre_tabla_prestadores, periodo)
+        engine, df_prestadores, NOMBRE_TABLA_PRESTADORES, periodo)
 
     # Configuraciones para insertar en BD GENERAL
     df_prestadores.rename(columns={
                           'CODIGO DE HABILITACION': 'CODIGO DE HABILITACION2', 'TIPO PERSONA': 'TIPO_PERSONA'}, inplace=True)
     df_prestadores.drop(columns=['DESCRIPCION ESPECIALIDAD'], inplace=True)
 
-    actualizar_datos_oracle(engine, df_prestadores, nombre_tabla_prestadores)
+    actualizar_datos_oracle(engine, df_prestadores, NOMBRE_TABLA_PRESTADORES)
 
 
 if __name__ == '__main__':
