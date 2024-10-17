@@ -47,13 +47,21 @@ def actualizar_prestadores(engine: create_engine, ruta_prestadores: pathlib.Path
     with zipfile.ZipFile(ruta_prestadores, 'r') as zip_file:
         with tempfile.TemporaryDirectory() as temp_dir:
             zip_file.extractall(temp_dir)
-            archivo = pathlib.Path(temp_dir).rglob('*.xlsx')
+            archivos = pathlib.Path(temp_dir).rglob(
+                '*.xlsx')  # Esto es un generador
             try:
-                logging.info(f'Leyendo archivo {archivo}')
-                df_prestadores = pd.read_excel(archivo, sheet_name='E.P.S Sanitas',
-                                               skiprows=2, dtype='str', usecols=COLUMNAS_PRESTADORES)
+                # Obtenemos el primer archivo encontrado
+                archivo = next(archivos, None)
+
+                if archivo is None:
+                    logging.error(
+                        f'No se encontró ningún archivo .xlsx en el ZIP')
+                else:
+                    logging.info(f'Leyendo archivo {archivo}')
+                    df_prestadores = pd.read_excel(archivo, sheet_name='E.P.S Sanitas',
+                                                   skiprows=2, dtype='str', usecols=COLUMNAS_PRESTADORES)
             except Exception as e:
-                logging.error(f'error al leer el archivo de prestadores {e}')
+                logging.error(f'Error al leer el archivo de prestadores: {e}')
 
     df_regionales = pd.read_csv(carpeta_regionales, sep='|', dtype='str')
 
