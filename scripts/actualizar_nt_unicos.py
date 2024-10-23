@@ -2,7 +2,7 @@ import logging
 import pathlib
 import pandas as pd
 from tkinter import filedialog
-from operaciones_bdoracle import conectar_base_oracle, actualizar_datos_oracle
+from database.operaciones_bdoracle import conectar_base_oracle, actualizar_datos_oracle
 
 # Crear el diccionario de mapeo
 columnas_renombradas: dict = {

@@ -5,7 +5,8 @@ import zipfile
 import pandas as pd
 import logging
 from sqlalchemy import create_engine
-from operaciones_bdoracle import actualizar_datos_oracle, conectar_base_oracle
+from database.operaciones_bdoracle import conectar_base_oracle, actualizar_datos_oracle
+
 
 
 def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio_actualizado: str) -> None:

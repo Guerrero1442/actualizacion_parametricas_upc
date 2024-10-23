@@ -7,7 +7,7 @@ import logging
 import pandas as pd
 from sqlalchemy import create_engine
 
-from operaciones_bdoracle import actualizar_datos_oracle, conectar_base_oracle, creacion_tabla_actualizada
+from database.operaciones_bdoracle import actualizar_datos_oracle, conectar_base_oracle, creacion_tabla_actualizada
 
 # Constantes
 NOMBRE_TABLA_PRESTADORES = 'tbl_ope_universo_prestadores'

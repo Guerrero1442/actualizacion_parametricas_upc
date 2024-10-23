@@ -1,14 +1,15 @@
 import logging
 import os
+from pathlib import Path
 
+LOG_FILE = Path(__file__).resolve().parent / 'logs' / 'actualizacion_parametricas.log'
 
-def setup_logging(log_file=r"D:\Keralty scripts\automatizaciones_python\actualizacion_parametricas_upc\scripts\logs\actualizacion_parametricas.log"):
-
+def setup_logging():
     # asegurarse de que el directorio logs exista
-    os.makedirs(os.path.dirname(log_file), exist_ok=True)
+    os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
 
     logging.basicConfig(
-        filename=log_file,
+        filename=LOG_FILE,
         encoding="utf-8",
         filemode="a",
         format="%(asctime)s - %(levelname)s - %(message)s",

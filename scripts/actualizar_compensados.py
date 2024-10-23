@@ -3,7 +3,7 @@ from tkinter import filedialog
 from sqlalchemy import create_engine
 import pathlib
 import pandas as pd
-from operaciones_bdoracle import conectar_base_oracle, creacion_tabla_actualizada
+from database.operaciones_bdoracle import conectar_base_oracle, creacion_tabla_actualizada
 
 # Constantes
 # Archivos permitidos para cada grupo

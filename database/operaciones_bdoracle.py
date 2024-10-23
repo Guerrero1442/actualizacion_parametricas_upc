@@ -1,14 +1,14 @@
 # Coneccion base de datos
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 import cx_Oracle
 import configparser
 import pandas as pd
 import logging
 import sys
+from pathlib import Path
 
 # Constantes
-CONFIG_PATH = 'config.ini'
-
+CONFIG_PATH = Path(__file__).resolve().parent.parent / 'config.ini'
 
 def leer_configuracion_oracle():
     config = configparser.ConfigParser()
@@ -35,6 +35,25 @@ def conectar_base_oracle() -> create_engine:
         logging.CRITICAL(f'error al conectar con la base de datos {e}')
         sys.exit(1)
 
+def conectar_base_oracle_cxOracle() -> cx_Oracle.Connection:
+    config: configparser.ConfigParser = leer_configuracion_oracle()
+    
+    host: str = config['oracle']['host']
+    port: str = config['oracle']['port']
+    sid: str = config['oracle']['service_name']
+    user: str = config['oracle']['user']
+    password: str = config['oracle']['password']
+    
+    dsn = cx_Oracle.makedsn(host, port, sid)
+    
+    try: 
+        connection = cx_Oracle.connect(user, password, dsn)
+        logging.info('Conexión exitosa con la base de datos')
+        return connection
+    except Exception as e:
+        logging.CRITICAL(f'error al conectar con la base de datos {e}')
+        sys.exit(1)
+
 
 def actualizar_datos_oracle(engine: create_engine, df: pd.DataFrame, tabla: str):
     with engine.connect() as connection:
@@ -49,6 +68,17 @@ def actualizar_datos_oracle(engine: create_engine, df: pd.DataFrame, tabla: str)
     logging.info(f'Se actualizaron {
                  df.shape[0]} registros en la tabla {tabla}')
 
+def crear_tabla_oracle_longitudes(engine: create_engine, df: pd.DataFrame, tabla: str, sentencia_sql: str) -> None:
+    with engine.connect() as connection:
+        cursor = connection.connection.cursor()
+        try:
+            logging.info(f'Eliminando tabla {tabla}')
+            cursor.execute(f"DROP TABLE {tabla}")
+        except Exception as e:
+            logging.warning(f'error al eliminar la tabla {tabla} {e} La tabla no existe')
+        cursor.execute(sentencia_sql)
+        cursor.close()
+    logging.info(f'Se creó la tabla {tabla}') 
 
 def creacion_tabla_actualizada(engine: create_engine, df: pd.DataFrame, tabla: str, periodo: str) -> None:
 
@@ -87,3 +117,29 @@ def creacion_tabla_actualizada(engine: create_engine, df: pd.DataFrame, tabla: s
 
     logging.info(f'Se creó la tabla {tabla.lower()}_{
                  periodo} con {df.shape[0]} registros')
+
+def crear_tabla_bytes(engine, nombre_tabla: str, dataframe: pd.DataFrame, columnas: list = None, longitud_columnas: dict = None) -> None:
+    if columnas is None:
+        columnas = dataframe.columns.tolist()
+    if longitud_columnas is None:
+        longitud_columnas = {}
+
+    columnas_definicion = []
+    for columna in columnas:
+        cantidad_bytes_columna = longitud_columnas.get(columna, 255)
+        columnas_definicion.append(f"{columna} VARCHAR2({cantidad_bytes_columna})")
+
+    columnas_definicion_str = ",".join(columnas_definicion)
+    sentencia_sql = f"CREATE TABLE {nombre_tabla} ({columnas_definicion_str})"
+    
+    
+    # Crear tabla en oracle
+    try:
+        with engine.connect() as connection:
+            cursor = connection.connection.cursor()
+            cursor.execute(sentencia_sql)
+            cursor.close()
+        logging.info(f'Se creó la tabla {nombre_tabla}')
+    except Exception as e:
+        logging.warning(f'Error al crear la tabla {nombre_tabla} {e}')
+
