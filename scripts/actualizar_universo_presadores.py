@@ -7,7 +7,7 @@ import logging
 import pandas as pd
 from sqlalchemy import create_engine
 
-from database.operaciones_bdoracle import actualizar_datos_oracle, conectar_base_oracle, creacion_tabla_actualizada
+from database.operaciones_bdoracle import actualizar_datos_oracle, conectar_base_oracle, creacion_tabla_actualizada, obtener_datos_oracle
 
 # Constantes
 NOMBRE_TABLA_PRESTADORES = 'tbl_ope_universo_prestadores'
@@ -39,8 +39,25 @@ carpeta_regionales = pathlib.Path(
 
 
 def actualizar_prestadores(engine: create_engine, ruta_prestadores: pathlib.Path) -> None:
+    """
+    Actualiza la información de los prestadores en la base de datos para un período específico.
+    Esta función solicita al usuario un período de actualización en formato YYYYMM, valida la entrada y procesa 
+    un archivo ZIP que contiene un archivo Excel con los datos de los prestadores. Extrae y transforma los 
+    datos, realiza un cruce con información regional, y actualiza la base de datos Oracle con los nuevos 
+    datos de los prestadores. Además, marca como 'FINALIZADO' aquellos prestadores que no están presentes 
+    en la actualización actual.
+    Args:
+        engine (create_engine): Motor de la base de datos utilizado para las operaciones de lectura y escritura.
+        ruta_prestadores (pathlib.Path): Ruta al archivo ZIP que contiene el archivo Excel con los datos de los prestadores.
+    Returns:
+        None
+    """
 
     periodo = input('Ingrese el periodo de actualización (YYYYMM): ')
+    
+    if not periodo.isdigit() or len(periodo) != 6:
+        logging.error('El periodo debe ser un número de 6 dígitos')
+        return
 
     logging.info(f'Actualizando prestadores para el periodo {periodo}')
 
@@ -63,7 +80,12 @@ def actualizar_prestadores(engine: create_engine, ruta_prestadores: pathlib.Path
             except Exception as e:
                 logging.error(f'Error al leer el archivo de prestadores: {e}')
 
-    df_regionales = pd.read_csv(carpeta_regionales, sep='|', dtype='str')
+    try:
+        df_regionales = pd.read_csv(carpeta_regionales, sep='|', dtype='str')
+    except FileNotFoundError:
+        logging.error(f'No se encontró el archivo de regionales en {carpeta_regionales}')
+    except Exception as e:
+        logging.error(f'Error al leer el archivo de regionales: {e}')
 
     # Preparacion para cruce de regionales
     df_regionales['regional_adaptada'] = df_regionales['Regional'].str.replace(
@@ -99,28 +121,42 @@ def actualizar_prestadores(engine: create_engine, ruta_prestadores: pathlib.Path
     column_renames = {
         "FORMA CONTRATACION": "RELACION EPS",
         "NUM ID": "NIT",
+        "TIPO PERSONA": "TIPO_PERSONA",
         "CODIGO SUCURSAL": "CODIGO SUCURSAL22",
         "NOMBRE SUCURSAL": "PRESTADOR",
         "CIUDAD": "COD_CIUDAD",
         "DESCRIPCION CIUDAD": "CIUDAD",
-        "ESPECIALIDAD": "GRUPO_SERVICIO",
+        "DESCRIPCION ESPECIALIDAD": "GRUPO_SERVICIO",
         "ESTADO": "Estado Actual",
         "FECHA INICIO CONVENIO": "INICIO_CONTRATO",
         "FECHA FIN CONVENIO": "FIN_VIGENCIA",
-        "COD_HABILITACION": "CODIGO DE HABILITACION",
+        "COD_HABILITACION": "CODIGO DE HABILITACION2",
     }
-
+        
     df_prestadores.rename(columns=column_renames, inplace=True)
+    
+    # limpieza columnas
+    df_prestadores['TIPO_PERSONA'] = df_prestadores['TIPO_PERSONA'].str.upper()
+    
+    # renombrar columnas a lower case cuando la columna no tiene espacios
+    df_prestadores.columns = [col.lower() if ' ' not in col else col for col in df_prestadores.columns]
+    
+    creacion_tabla_actualizada(engine, df_prestadores, NOMBRE_TABLA_PRESTADORES, periodo)
+    
+    # obtener universo prestadores
+    df_universo_prestadores = obtener_datos_oracle(engine, NOMBRE_TABLA_PRESTADORES)
+    
+    # poner marca df_universo_prestadores['Estado Actual'] = 'FINALIZADO' si no se encuentra en df_prestadores
+    df_universo_prestadores.loc[~df_universo_prestadores['nit'].isin(df_prestadores['nit']), 'Estado Actual'] = 'FINALIZADO'
+    
+    df_universo_prestadores_finalizados = df_universo_prestadores.loc[df_universo_prestadores['Estado Actual'] == 'FINALIZADO']
 
-    creacion_tabla_actualizada(
-        engine, df_prestadores, NOMBRE_TABLA_PRESTADORES, periodo)
+    
+    df_universo_prestadores_completos = pd.concat([df_prestadores, df_universo_prestadores_finalizados], ignore_index=True)
+    
+    df_universo_prestadores_completos.drop_duplicates(inplace=True)
 
-    # Configuraciones para insertar en BD GENERAL
-    df_prestadores.rename(columns={
-                          'CODIGO DE HABILITACION': 'CODIGO DE HABILITACION2', 'TIPO PERSONA': 'TIPO_PERSONA'}, inplace=True)
-    df_prestadores.drop(columns=['DESCRIPCION ESPECIALIDAD'], inplace=True)
-
-    actualizar_datos_oracle(engine, df_prestadores, NOMBRE_TABLA_PRESTADORES)
+    actualizar_datos_oracle(engine, df_universo_prestadores_completos, NOMBRE_TABLA_PRESTADORES)
 
 
 if __name__ == '__main__':

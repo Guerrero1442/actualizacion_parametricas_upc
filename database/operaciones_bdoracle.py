@@ -143,3 +143,12 @@ def crear_tabla_bytes(engine, nombre_tabla: str, dataframe: pd.DataFrame, column
     except Exception as e:
         logging.warning(f'Error al crear la tabla {nombre_tabla} {e}')
 
+def obtener_datos_oracle(engine: create_engine, tabla: str) -> pd.DataFrame:
+    with engine.connect() as connection:
+        try:
+            df = pd.read_sql(f"SELECT * FROM {tabla}", connection)
+            logging.info(f'Se obtuvieron {df.shape[0]} registros de la tabla {tabla}')
+            return df
+        except Exception as e:
+            logging.warning(f'Error al obtener los datos de la tabla {tabla} {e}')
+            return pd.DataFrame()
