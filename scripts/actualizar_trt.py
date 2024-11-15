@@ -26,6 +26,10 @@ def actualizar_trt_medicamentos(engine, ruta_trt: Path, nombre_tabla: str) -> No
     crear_tabla_bytes(engine ,nombre_tabla, df, df.columns, longitudes_max_columnas)
     
     actualizar_datos_oracle(engine, df, nombre_tabla)
+    
+    crear_tabla_bytes(engine , 'tbl_ope_nt_trt_medicamentos_2024', df, df.columns, longitudes_max_columnas)
+
+    actualizar_datos_oracle(engine, df, 'tbl_ope_nt_trt_medicamentos_2024')
 
 def quitar_acentos(texto: str) -> str:
     return unidecode(texto)

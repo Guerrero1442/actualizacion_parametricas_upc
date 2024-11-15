@@ -1,11 +1,11 @@
 # Coneccion base de datos
-from sqlalchemy import create_engine, text
 import cx_Oracle
 import configparser
 import pandas as pd
 import logging
 import sys
 from pathlib import Path
+from sqlalchemy import create_engine, exc
 
 # Constantes
 CONFIG_PATH = Path(__file__).resolve().parent.parent / 'config.ini'
@@ -136,9 +136,26 @@ def crear_tabla_bytes(engine, nombre_tabla: str, dataframe: pd.DataFrame, column
     # Crear tabla en oracle
     try:
         with engine.connect() as connection:
-            cursor = connection.connection.cursor()
-            cursor.execute(sentencia_sql)
-            cursor.close()
+            # Eliminar tabla si existe
+            try:
+                logging.info(f'Eliminando tabla {nombre_tabla}')
+                # Verificar si la tabla existe antes de intentar eliminarla
+                if connection.dialect.has_table(connection, nombre_tabla):
+                    connection.execute(f"DROP TABLE {nombre_tabla}")
+                else:
+                    logging.warning(f'La tabla {nombre_tabla} no existe')
+            except exc.SQLAlchemyError as e:
+                logging.warning(f'Error al eliminar la tabla {nombre_tabla}: {e}')
+            except Exception as e:
+                logging.warning(f'Error inesperado al eliminar la tabla {nombre_tabla}: {e}')
+            finally:
+                cursor = connection.connection.cursor()
+                try:
+                    cursor.execute(sentencia_sql)
+                except Exception as e:
+                    logging.warning(f'Error al ejecutar la sentencia SQL: {e}')
+                finally:
+                    cursor.close()
         logging.info(f'Se creó la tabla {nombre_tabla}')
     except Exception as e:
         logging.warning(f'Error al crear la tabla {nombre_tabla} {e}')
