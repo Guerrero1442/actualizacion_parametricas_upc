@@ -22,6 +22,8 @@ def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio
                       'DESCRIPCIÓN': 'DESCRIPCION'}, inplace=True)
             actualizar_datos_oracle(
                 engine, df, f'tbl_suf_insumos_{anio_actualizado}')
+        else:
+            logging.error(f'El archivo {nombre_archivo} contiene códigos duplicados')
 
     elif nombre_archivo.startswith(f'{anio_actualizado}_TR_CIE10'):
         logging.info(f'Procesando archivo {nombre_archivo}')
@@ -33,6 +35,8 @@ def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio
             }, inplace=True)
             actualizar_datos_oracle(
                 engine, df, f'tbl_suf_cie10_{anio_actualizado}')
+        else:
+            logging.error(f'El archivo {nombre_archivo} contiene códigos duplicados')
 
     elif nombre_archivo.startswith(f'{anio_actualizado}_TR_CUPS') and 'COBERTURA' in nombre_archivo:
         logging.info(f'Procesando archivo {nombre_archivo}')
@@ -42,8 +46,14 @@ def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio
                     inplace=True, errors='ignore')
             df.rename(
                 columns={'DX_RELACIONADO': 'CIE_10 RELACIONADOS'}, inplace=True)
+            
+            df.loc[df['COBERTURA'].isin(['PBS', 'PBS_CONDICIONADO']), 'PBS'] = 'PBS'
+            df.loc[df['PBS'].isnull(), 'PBS'] = 'NPBS'
+            
             actualizar_datos_oracle(
                 engine, df, f'tbl_suf_cups_{anio_actualizado}')
+        else:
+            logging.error(f'El archivo {nombre_archivo} contiene códigos duplicados')
 
     elif nombre_archivo.startswith(f'{anio_actualizado}_REPS'):
         logging.info(f'Procesando archivo {nombre_archivo}')
@@ -55,6 +65,8 @@ def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio
             }, inplace=True)
             actualizar_datos_oracle(
                 engine, df, f'tbl_suf_reps_{anio_actualizado}')
+        else:
+            logging.error(f'El archivo {nombre_archivo} contiene códigos de habilitacion duplicados')
 
 
 def actualizar_vigencia_upc(engine: create_engine, zip_path: pathlib.Path) -> None:
