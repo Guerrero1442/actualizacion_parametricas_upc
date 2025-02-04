@@ -69,32 +69,58 @@ columnas_renombradas: dict = {
 
 nombre_tabla_nt_unicos: str = 'tbl_ope_nt_unicos_2024'
 
+def eliminar_registros_nulos(df, column_name):
+    df = df.copy()
+    return df.loc[df[column_name].notnull()]
+
+def transformar_fecha_novedad(df, column_name:str='Fecha Novedad', format:str='%Y-%m-%d'):
+    df = df.copy()
+    df[column_name] = df[column_name].str.slice(stop=10)
+    df[column_name] = pd.to_datetime(df[column_name], format=format)
+    return df
+
+def eliminar_registros_duplicados(df, column_name:str='Codigo OSI', sort_by:str='Fecha Novedad', ruta_nt_unicos=None):
+    df = df.copy()
+    codigos_duplicados = df.loc[df.duplicated(subset=[column_name])][column_name].unique()
+    logging.info(f'Hay {len(codigos_duplicados)} {column_name} OSI duplicados en el archivo {ruta_nt_unicos.name} se tomara el que tenga fecha novedad mas reciente')
+    return df.sort_values(by=[column_name, sort_by], ascending=[False, True]).drop_duplicates(subset=[column_name], keep='last')
+
+def formatear_fecha(df, column_name:str='Fecha Novedad', format:str='%Y-%m-%d'):
+    df = df.copy()
+    df[column_name] = df[column_name].dt.strftime(format)
+    return df
+
+def limpiar_columnas(df):
+    df = df.copy()
+    for col in df.select_dtypes(include='object').columns:
+        df[col] = df[col].str.replace(r'\s{2,}', ' ', regex=True).str.strip()
+    return df
+
+def eliminar_columnas(df, columns: list):
+    df = df.copy()
+    df.drop(columns=columns, inplace=True, errors='ignore')
+    return df
+
+def renombrar_columnas(df):
+    df = df.copy()
+    df['DESC_CUPS'] = df['Descripción BH']
+    df.rename(columns=columnas_renombradas, inplace=True)
+    return df    
 
 def actualizar_nt_unicos(engine, ruta_nt_unicos):
     df = pd.read_excel(ruta_nt_unicos, dtype='str')
     logging.info(f'Procesando archivo {ruta_nt_unicos.name}')
+    
+    df_limpio = (df.pipe(eliminar_registros_nulos, 'Codigo OSI')
+                    .pipe(transformar_fecha_novedad, 'Fecha Novedad', '%Y-%m-%d')
+                    .pipe(eliminar_registros_duplicados, 'Codigo OSI', 'Fecha Novedad', ruta_nt_unicos)
+                    .pipe(formatear_fecha,'Fecha Novedad', '%Y-%m-%d')
+                    .pipe(limpiar_columnas)
+                    .pipe(eliminar_columnas, ['#', '-', 'CONSULTA VIRTUAL', 'TELEXPERTICIA'])
+                    .pipe(renombrar_columnas)
+                )
 
-    if df.loc[df.duplicated(subset=['Codigo OSI'])].shape[0] > 0:
-        logging.info(f'Hay valores duplicados en el archivo {ruta_nt_unicos.name} la operación se cancelará')
-        print(df['Codigo OSI'].loc[df.duplicated(subset=['Codigo OSI'])])
-        return
-
-    if df.loc[df['Codigo OSI'].isnull()].shape[0] > 0:
-        logging.info(f'Hay valores nulos en el archivo {ruta_nt_unicos.name} la operación se cancelará')
-        print(df.loc[df['Codigo OSI'].isnull()].shape[0])
-        return
-
-    for col in df.columns:
-        df[col] = df[col].str.replace(r'\s{2,}', ' ', regex=True).str.strip()
-
-    df.drop(columns=['#', '-', 'CONSULTA VIRTUAL',
-            'TELEXPERTICIA'], inplace=True, errors='ignore')
-
-    df['DESC_CUPS'] = df['Descripción BH']
-
-    df.rename(columns=columnas_renombradas, inplace=True)
-
-    actualizar_datos_oracle(engine, df, nombre_tabla_nt_unicos)
+    actualizar_datos_oracle(engine, df_limpio, nombre_tabla_nt_unicos)
 
 
 if __name__ == '__main__':
