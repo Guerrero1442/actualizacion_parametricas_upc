@@ -1,4 +1,6 @@
 # Coneccion base de datos
+from datetime import datetime
+from dateutil.relativedelta import relativedelta
 import cx_Oracle
 import configparser
 import pandas as pd
@@ -81,8 +83,10 @@ def crear_tabla_oracle_longitudes(engine: create_engine, df: pd.DataFrame, tabla
     logging.info(f'Se creó la tabla {tabla}') 
 
 def creacion_tabla_actualizada(engine: create_engine, df: pd.DataFrame, tabla: str, periodo: str) -> None:
-
-    periodo_anterior = str(int(periodo) - 1)
+    periodo_anterior = datetime.strptime(periodo, '%Y%m')
+    periodo_anterior = periodo_anterior - relativedelta(months=1)
+    periodo_anterior = periodo_anterior.strftime('%Y%m')
+    nombre_tabla = tabla.lower() + '_' + periodo
 
     with engine.connect() as connection:
         # Crear cursor
@@ -90,33 +94,26 @@ def creacion_tabla_actualizada(engine: create_engine, df: pd.DataFrame, tabla: s
 
         # Eliminar tabla si existe
         try:
-            logging.info(f'Eliminando tabla {tabla.lower()}_{periodo}')
+            logging.info(f'Eliminando tabla {nombre_tabla}')
             cursor.execute(f"""
-                DROP TABLE {tabla.lower()}_{periodo}
+                DROP TABLE {nombre_tabla}
             """)
         except Exception as e:
             logging.warning(f'error al eliminar la tabla {
-                tabla.lower()}_{periodo} {e}')
+                nombre_tabla} {e}')
 
         # Crear copia de la tabla del periodo anterior
         try:
-            logging.info(f'Creando tabla {tabla.lower()}_{periodo}')
+            logging.info(f'Creando tabla {nombre_tabla}')
             cursor.execute(f"""
-                CREATE TABLE {tabla.lower()}_{periodo} AS
+                CREATE TABLE {nombre_tabla} AS
                 SELECT * FROM {tabla.lower()}_{periodo_anterior} WHERE 1=0
             """)
         except Exception as e:
-            logging.warning(f'error al crear la tabla {
-                tabla.lower()}_{periodo} {e}')
-
-    # Hacer la insercion por chunk df
-    chunksize = 50000
-    for i in range(0, df.shape[0], chunksize):
-        df.iloc[i:i+chunksize].to_sql(tabla.lower() +
-                                      f'_{periodo}', engine, if_exists='append', index=False)
-
-    logging.info(f'Se creó la tabla {tabla.lower()}_{
-                 periodo} con {df.shape[0]} registros')
+            logging.warning(f'error al crear la tabla {nombre_tabla} {e}')
+            
+        
+    insertar_datos_oracle(engine, nombre_tabla, df)
 
 def crear_tabla_bytes(engine, nombre_tabla: str, dataframe: pd.DataFrame, columnas: list = None, longitud_columnas: dict = None) -> None:
     if columnas is None:
@@ -160,6 +157,28 @@ def crear_tabla_bytes(engine, nombre_tabla: str, dataframe: pd.DataFrame, column
     except Exception as e:
         logging.warning(f'Error al crear la tabla {nombre_tabla} {e}')
 
+def insertar_datos_oracle(engine, tabla: str, df: pd.DataFrame) -> None:
+    columnas = df.columns.tolist()
+    columnas_sql = ",".join(columnas)
+    placeholders = ", ".join([f':{i+1}' for i in range(len(columnas))])
+    
+    sql = f"INSERT INTO {tabla} ({columnas_sql}) VALUES ({placeholders})"
+    
+    df.fillna('', inplace=True)
+    
+    tuples_values = [tuple(row) for row in df.values]
+    
+    with engine.connect() as conn:
+        cursor = conn.connection.cursor()
+        try:
+            chunksize = 100000
+            for i in range(0, len(tuples_values), chunksize):
+                cursor.executemany(sql, tuples_values[i:i+chunksize])
+                conn.connection.commit()
+            logging.info(f'Se insertaron {len(tuples_values)} registros en la tabla {tabla}')  
+        except Exception as e:
+            logging.warning(f'Error al insertar los datos en la tabla {tabla} {e}')        
+    
 def obtener_datos_oracle(engine: create_engine, tabla: str) -> pd.DataFrame:
     with engine.connect() as connection:
         try:
