@@ -67,8 +67,7 @@ def actualizar_datos_oracle(engine: create_engine, df: pd.DataFrame, tabla: str)
             logging.warning(f'error al truncar la tabla {tabla} {e}')
         df.to_sql(tabla, con=engine, if_exists='append', index=False)
         cursor.close()
-    logging.info(f'Se actualizaron {
-                 df.shape[0]} registros en la tabla {tabla}')
+    logging.info(f'Se actualizaron {df.shape[0]} registros en la tabla {tabla}')
 
 def crear_tabla_oracle_longitudes(engine: create_engine, df: pd.DataFrame, tabla: str, sentencia_sql: str) -> None:
     with engine.connect() as connection:
@@ -99,8 +98,7 @@ def creacion_tabla_actualizada(engine: create_engine, df: pd.DataFrame, tabla: s
                 DROP TABLE {nombre_tabla}
             """)
         except Exception as e:
-            logging.warning(f'error al eliminar la tabla {
-                nombre_tabla} {e}')
+            logging.warning(f'error al eliminar la tabla {nombre_tabla} {e}')
 
         # Crear copia de la tabla del periodo anterior
         try:
