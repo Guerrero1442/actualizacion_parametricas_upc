@@ -67,7 +67,7 @@ columnas_renombradas: dict = {
     'NOMBRE DEL REPS 3100 OPCION TRES': 'NOMBRE_DEL_REPS_3100_OPCION_TRES'
 }
 
-nombre_tabla_nt_unicos: str = 'tbl_ope_nt_unicos_2024'
+nombre_tabla_nt_unicos: str = 'tbl_ope_nt_unicos_2025'
 
 def eliminar_registros_nulos(df, column_name):
     df = df.copy()
