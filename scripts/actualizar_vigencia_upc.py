@@ -15,6 +15,7 @@ def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio
     if nombre_archivo.startswith(f'{anio_actualizado}_INSUMOS'):
         logging.info(f'Procesando archivo {nombre_archivo}')
         df = pd.read_excel(archivo, skiprows=4, engine='pyxlsb')
+        print(f'Columnas archivo {nombre_archivo}: {df.columns}')
         if codigo_duplicado(df, 'CÓDIGO') == 0:
             df.drop(columns=['AÑO_VIGENCIA', ' '],
                     inplace=True, errors='ignore')
@@ -25,12 +26,13 @@ def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio
         else:
             logging.error(f'El archivo {nombre_archivo} contiene códigos duplicados')
 
-    elif nombre_archivo.startswith(f'{anio_actualizado}_TR_CIE10'):
+    elif nombre_archivo.startswith(f'{anio_actualizado}_TABLA DE REFERENCIA CIE-10'):
         logging.info(f'Procesando archivo {nombre_archivo}')
-        df = pd.read_excel(archivo, skiprows=4, engine='pyxlsb')
-        if codigo_duplicado(df, 'CODIGO') == 0:
+        df = pd.read_excel(archivo, skiprows=4,)
+        
+        if codigo_duplicado(df, 'Codigo') == 0:
             df.rename(columns={
-                'VIGENCIA': 'Tabla', 'CODIGO': 'CIE10', 'DESCRIPCION': 'DESCRIPCIÓN CÓDIGOS DE CUATRO CARACTERES',
+                'VIGENCIA': 'Tabla', 'Codigo': 'CIE10', 'Nombre': 'DESCRIPCIÓN CÓDIGOS DE CUATRO CARACTERES',
                 'EDAD_LIM_INF': 'VALOR_LIM_INF', 'EDAD_LIM_SUP': 'VALOR_LIM_SUP'
             }, inplace=True)
             actualizar_datos_oracle(
@@ -40,12 +42,14 @@ def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio
 
     elif nombre_archivo.startswith(f'{anio_actualizado}_TR_CUPS') and 'COBERTURA' in nombre_archivo:
         logging.info(f'Procesando archivo {nombre_archivo}')
-        df = pd.read_excel(archivo, skiprows=4, engine='pyxlsb')
-        if codigo_duplicado(df, 'CODIGO') == 0:
+        df = pd.read_excel(archivo, skiprows=3, engine='pyxlsb')
+        print(f'Columnas archivo {nombre_archivo}: {df.columns}')
+        if codigo_duplicado(df, 'CÓDIGO') == 0:
+            df.columns = df.columns.str.strip()
             df.drop(columns=['AÑO_VIGENCIA', ' '],
                     inplace=True, errors='ignore')
             df.rename(
-                columns={'DX_RELACIONADO': 'CIE_10 RELACIONADOS'}, inplace=True)
+                columns={'CÓDIGO': 'CODIGO', 'DX_RELACIONADO': 'CIE_10 RELACIONADOS', 'DESCRIPCIÓN': 'DESCRIPCION'}, inplace=True)
             
             df.loc[df['COBERTURA'].isin(['PBS', 'PBS_CONDICIONADO']), 'PBS'] = 'PBS'
             df.loc[df['PBS'].isnull(), 'PBS'] = 'NPBS'
@@ -57,7 +61,11 @@ def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio
 
     elif nombre_archivo.startswith(f'{anio_actualizado}_REPS'):
         logging.info(f'Procesando archivo {nombre_archivo}')
-        df = pd.read_excel(archivo, skiprows=4, engine='pyxlsb')
+        if nombre_archivo.endswith('xlsx'):
+            df = pd.read_excel(archivo, skiprows=3)
+        else:
+            df = pd.read_excel(archivo, skiprows=3, engine='pyxlsb')
+        print(f'Columnas archivo {nombre_archivo}: {df.columns}')
         if codigo_duplicado(df, 'CÓDIGO HABILITACION') == 0:
             df.drop(columns=['AÑO_VIGENCIA'], inplace=True, errors='ignore')
             df.rename(columns={
