@@ -110,13 +110,11 @@ def actualizar_prestadores(engine: create_engine, ruta_prestadores: pathlib.Path
     df_prestadores['NIT2'] = df_prestadores['TIPO ID'].str.slice(
         0, 1) + df_prestadores['NUM ID']
     df_prestadores['MUNICIPIO AUTORIZADO'] = ''
-    df_prestadores['COD_HABILITACION'] = df_prestadores['COD HABILITACION SUCURSAL'] + \
-        df_prestadores['HABILITACIÓN SEDE SUCURSAL']
+    df_prestadores['COD_HABILITACION'] = df_prestadores['COD HABILITACION SUCURSAL'] + df_prestadores['HABILITACIÓN SEDE SUCURSAL']
 
     # Eliminar columnas no necesarias
     df_prestadores.drop(columns=['HABILITACIÓN SEDE SUCURSAL',
                         'COD HABILITACION SUCURSAL', 'TIPO ID'], inplace=True)
-
     # Define el nombre de las columnas
     column_renames = {
         "FORMA CONTRATACION": "RELACION EPS",
