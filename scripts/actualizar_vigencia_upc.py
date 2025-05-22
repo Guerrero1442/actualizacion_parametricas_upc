@@ -6,10 +6,11 @@ import pandas as pd
 import logging
 from sqlalchemy import create_engine
 from database.operaciones_bdoracle import conectar_base_oracle, actualizar_datos_oracle
+from utils import seleccionar_archivo
 
 
 
-def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio_actualizado: str) -> None:
+def procesar_archivo_vigencia(engine, archivo: pathlib.Path, anio_actualizado: str) -> None:
     nombre_archivo: str = archivo.name
 
     if nombre_archivo.startswith(f'{anio_actualizado}_INSUMOS'):
@@ -77,7 +78,11 @@ def procesar_archivo_vigencia(engine: create_engine, archivo: pathlib.Path, anio
             logging.error(f'El archivo {nombre_archivo} contiene códigos de habilitacion duplicados')
 
 
-def actualizar_vigencia_upc(engine: create_engine, zip_path: pathlib.Path) -> None:
+def actualizar_vigencia_upc() -> None:
+    zip_path = seleccionar_archivo(titulo="Seleccione el archivo ZIP de la vigencia UPC", 
+                                   extension='.zip', 
+                                   tipos=[("ZIP files", "*.zip")])
+    engine = conectar_base_oracle()
     anio_actualizado = input('Ingrese el año de actualización: ')
 
     with zipfile.ZipFile(zip_path, 'r') as archivo_zip:
@@ -100,9 +105,4 @@ def codigo_duplicado(df: pd.DataFrame, columna: str) -> int:
 
 
 if __name__ == '__main__':
-    engine = conectar_base_oracle()
-
-    ruta_zip = pathlib.Path(filedialog.askopenfilename(
-        initialdir=r'G:\Mi unidad\Mis Actividades\Actualizacion Parametricas UPC\Vigencia_UPC'))
-
-    actualizar_vigencia_upc(engine, ruta_zip)
+    actualizar_vigencia_upc()

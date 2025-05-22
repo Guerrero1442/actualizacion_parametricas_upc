@@ -1,0 +1,11 @@
+parametricas:
+  - nombre: "universo_prestadores"
+    funcion: "actualizar_prestadores"
+  - nombre: "vigencia_upc"
+    funcion: "actualizar_vigencia_upc"
+  - nombre: "usuarios_compensados"
+    funcion: "actualizar_compensados"
+  - nombre: "nt_unicos"
+    funcion: "actualizar_nt_unicos"
+  - nombre: "trt"
+    funcion: "actualizar_trt_medicamentos"

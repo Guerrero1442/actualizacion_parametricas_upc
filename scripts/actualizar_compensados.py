@@ -4,6 +4,7 @@ from sqlalchemy import create_engine
 import pathlib
 import pandas as pd
 from database.operaciones_bdoracle import conectar_base_oracle, creacion_tabla_actualizada
+from utils import seleccionar_carpeta
 
 # Constantes
 # Archivos permitidos para cada grupo
@@ -18,7 +19,14 @@ tablas: dict[str, str] = {
 }
 
 
-def actualizar_compensados(engine: create_engine, ruta_compensados: pathlib.Path) -> None:
+def actualizar_compensados() -> None:
+    
+    engine = conectar_base_oracle()
+    
+    ruta_compensados = seleccionar_carpeta(
+        titulo="Seleccione la carpeta con los archivos de compensados"
+    )
+    
     # Preguntar periodo de actualizacion
     periodo = input("Ingrese el periodo de actualización (YYYYMM): ")
     logging.info(f'Actualizando compensados para el periodo {periodo}')
@@ -74,9 +82,4 @@ def actualizar_compensados(engine: create_engine, ruta_compensados: pathlib.Path
 
 
 if __name__ == '__main__':
-    ruta_compensados = pathlib.Path(filedialog.askdirectory(
-        initialdir=r'G:\.shortcut-targets-by-id\1buUUJ2naBFTn-E10CXNd8elJ6YQOlWCR\00_BASES_COMPENSACION_2024'))
-
-    engine: create_engine = conectar_base_oracle()
-
-    actualizar_compensados(engine, ruta_compensados)
+    actualizar_compensados()

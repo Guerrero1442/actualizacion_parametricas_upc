@@ -8,6 +8,7 @@ import pandas as pd
 from sqlalchemy import create_engine
 
 from database.operaciones_bdoracle import actualizar_datos_oracle, conectar_base_oracle, creacion_tabla_actualizada, obtener_datos_oracle
+from utils import seleccionar_archivo
 
 # Constantes
 NOMBRE_TABLA_PRESTADORES = 'tbl_ope_universo_prestadores'
@@ -38,7 +39,7 @@ carpeta_regionales = pathlib.Path(
     r'G:\.shortcut-targets-by-id\1wT-pRaNOECz6KC5hndveeLOIGY381o4T\Alteryx\Proyectos\154._Tableros_RIPS\03.Salidas\_Tb_Regiones_.csv')
 
 
-def actualizar_prestadores(engine: create_engine, ruta_prestadores: pathlib.Path) -> None:
+def actualizar_prestadores() -> None:
     """
     Actualiza la información de los prestadores en la base de datos para un período específico.
     Esta función solicita al usuario un período de actualización en formato YYYYMM, valida la entrada y procesa 
@@ -52,6 +53,14 @@ def actualizar_prestadores(engine: create_engine, ruta_prestadores: pathlib.Path
     Returns:
         None
     """
+    
+    engine = conectar_base_oracle()
+    ruta_prestadores = seleccionar_archivo(
+        titulo='Seleccione el archivo ZIP de prestadores',
+        extension='.zip',
+        tipos=[("ZIP files", "*.zip")],
+    )
+    
 
     periodo = input('Ingrese el periodo de actualización (YYYYMM): ')
     
@@ -158,10 +167,4 @@ def actualizar_prestadores(engine: create_engine, ruta_prestadores: pathlib.Path
 
 
 if __name__ == '__main__':
-
-    engine: create_engine = conectar_base_oracle()
-
-    ruta_prestadores = filedialog.askopenfilename(
-        initialdir=carpeta_inicial, title='Seleccione el archivo de prestadores')
-
-    actualizar_prestadores(engine, ruta_prestadores)
+    actualizar_prestadores()

@@ -3,6 +3,7 @@ import pathlib
 import pandas as pd
 from tkinter import filedialog
 from database.operaciones_bdoracle import conectar_base_oracle, actualizar_datos_oracle
+from utils import seleccionar_archivo
 
 # Crear el diccionario de mapeo
 columnas_renombradas: dict = {
@@ -107,7 +108,16 @@ def renombrar_columnas(df):
     df.rename(columns=columnas_renombradas, inplace=True)
     return df    
 
-def actualizar_nt_unicos(engine, ruta_nt_unicos):
+def actualizar_nt_unicos():
+    engine = conectar_base_oracle()
+    
+    ruta_nt_unicos = seleccionar_archivo(
+        titulo="Seleccione el archivo de NT UNICOS",
+        extension='.xlsx',
+        tipos=[("Excel files", "*.xlsx")]
+    )
+    
+    
     df = pd.read_excel(ruta_nt_unicos, dtype='str')
     logging.info(f'Procesando archivo {ruta_nt_unicos.name}')
     
@@ -124,9 +134,4 @@ def actualizar_nt_unicos(engine, ruta_nt_unicos):
 
 
 if __name__ == '__main__':
-    engine = conectar_base_oracle()
-
-    ruta_nt_unicos = pathlib.Path(filedialog.askopenfilename(
-        initialdir=r'G:\Mi unidad\Mis Actividades\Actualizacion Parametricas UPC\NT_UNICOS'))
-
-    actualizar_nt_unicos(engine, ruta_nt_unicos)
+    actualizar_nt_unicos()
