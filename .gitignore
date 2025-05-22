@@ -1,5 +1,5 @@
 # Omitir archivos de configuracion
-config.ini
+database.yaml
 
 # Omitir carpetas
 /downloads
