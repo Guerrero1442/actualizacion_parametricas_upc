@@ -1,6 +1,6 @@
 parametricas:
   - nombre: "universo_prestadores"
-    funcion: "actualizar_prestadores"
+    funcion: "actualizar_universo_presadores"
   - nombre: "vigencia_upc"
     funcion: "actualizar_vigencia_upc"
   - nombre: "usuarios_compensados"

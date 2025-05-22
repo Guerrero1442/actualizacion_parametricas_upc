@@ -15,15 +15,19 @@ FUNCIONES_DISPONIBLES = {
     'actualizar_trt_medicamentos': actualizar_trt_medicamentos
 }
 
-def main():
-    config = leer_config()
+def obtener_parametrica_seleccionada(config: dict) -> str | None:
+    if 'parametricas' not in config:
+        print("No se encontró la configuración de paramétricas.")
+        return
+            
+    parametricas_map = {p['nombre']: p for p in config['parametricas']}
+    opciones_parametricas = list(parametricas_map.keys())
     
-    print(config['parametricas'])
+    if not opciones_parametricas:
+        print("No existe ninguna parametrica para actualizar.")
+        return
     
-    opciones_parametricas = [x['nombre'] for x in config['parametricas']]
-    print(opciones_parametricas)
-
-    parametricas_actualizar = [
+    pregunta = [
         inquirer.List(
             "seleccion",
             message="Seleccione que parametrica desea actualizar",
@@ -31,36 +35,56 @@ def main():
         )
     ]
     
-    respuesta = inquirer.prompt(parametricas_actualizar)
+    respuesta = inquirer.prompt(pregunta)
     
     if not respuesta:
         print("No se seleccionó ninguna opción. Saliendo...")
         return
     
     parametrica_seleccionada = respuesta['seleccion']
-    
-    nombre_funcion_encontrada = False
-    nombre_funcion = ''
-    
-    for parametrica in config['parametricas']:
-        if parametrica['nombre'] == parametrica_seleccionada:
-            nombre_funcion = parametrica['funcion']
-            nombre_funcion_encontrada = True
-            break
 
+    return parametricas_map.get(parametrica_seleccionada)
+
+def ejecutar_funcion_parametrica(parametrica):
+    if not parametrica:
+        print("No se recibio la parametrica.")
+        return
     
-    if nombre_funcion_encontrada:
-        funcion_a_ejecutar = FUNCIONES_DISPONIBLES.get(nombre_funcion)
+    nombre_parametrica = parametrica.get('nombre')
+    nombre_funcion = parametrica.get('funcion')
+
+    if not nombre_parametrica or not nombre_funcion:
+        print("No se recibieron los datos necesarios para ejecutar la función.")
+        return
+
+    funcion_a_ejecutar = FUNCIONES_DISPONIBLES.get(nombre_funcion)
     
-        if funcion_a_ejecutar:
-            print(f'Actualizando {parametrica_seleccionada}...')
+    if callable(funcion_a_ejecutar):
+        print(f'Actualizando {nombre_parametrica}...')
+        try:
             funcion_a_ejecutar()
-        else:
-            print(f'No se encontró la función para {parametrica_seleccionada}.')
-            
+            print(f'Actualización de {nombre_parametrica} completada.')
+        except Exception as e:
+            print(f'Error al actualizar {nombre_parametrica}: {e}')
     else:
-        print(f'La opcion {parametrica_seleccionada} no es válida.')
+        print(f'No se encontró la función para {funcion_a_ejecutar}.')
+
+
+def main():
+    config = leer_config()
+
+    if not config:
+        print("Error al cargar la configuración.")
+        return
     
+    parametrica_seleccionada = obtener_parametrica_seleccionada(config)
+    
+    if parametrica_seleccionada:
+        ejecutar_funcion_parametrica(parametrica_seleccionada)
+    else:
+        print("No se seleccionó ninguna parametrica para actualizar.")
+        return
+
 if __name__ == '__main__':
     setup_logging()
     main()
