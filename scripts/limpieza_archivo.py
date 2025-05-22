@@ -5,7 +5,7 @@ from unidecode import unidecode
 def sacar_longitudes_max_columnas(df: pd.DataFrame) -> dict:
     return {col: df[col].astype(str).str.len().max() for col in df.columns}
 
-def convertir_texto_dataframe(df:pd.DataFrame) -> pd.DataFrame:
+def quitar_espacios(df:pd.DataFrame) -> pd.DataFrame:
     for col in df.columns:
         try:
             df[col] = df[col].str.strip()

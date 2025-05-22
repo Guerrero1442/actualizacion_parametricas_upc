@@ -3,8 +3,8 @@ from pathlib import Path
 from unidecode import unidecode
 import pandas as pd
 from tkinter import filedialog
-from database.operaciones_bdoracle import conectar_base_oracle, actualizar_datos_oracle, crear_tabla_bytes
-from scripts.limpieza_archivo import sacar_longitudes_max_columnas, convertir_texto_dataframe, limpiar_texto_columnas
+from database.operaciones_bdoracle import conectar_base_oracle, actualizar_datos_oracle, crear_tabla_longitudes
+from scripts.limpieza_archivo import sacar_longitudes_max_columnas, quitar_espacios, limpiar_texto_columnas
 
 NOMBRE_TABLA_TRT_ORACLE = 'TBL_OPE_NT_TRT_MEDICAMENTOS_'
 
@@ -17,23 +17,23 @@ def actualizar_trt_medicamentos(engine, ruta_trt: Path, nombre_tabla: str) -> No
         
     df = pd.read_excel(ruta_trt, dtype='str', names=columnas)
     
-    df.columns = df.columns.str.replace('.', '')
     
-    df = df.pipe(convertir_texto_dataframe)
+    df = (
+        df.rename(columns=lambda x: x.strip())
+        .rename(columns=lambda x: x.replace('.', ''))
+        .rename(columns=lambda x: unidecode(x))
+        .pipe(quitar_espacios)
+    )
 
     longitudes_max_columnas = sacar_longitudes_max_columnas(df)
     
-    crear_tabla_bytes(engine ,nombre_tabla, df, df.columns, longitudes_max_columnas)
+    crear_tabla_longitudes(engine ,nombre_tabla, longitudes_max_columnas)
     
     actualizar_datos_oracle(engine, df, nombre_tabla)
     
-    crear_tabla_bytes(engine , 'tbl_ope_nt_trt_medicamentos_2025', df, df.columns, longitudes_max_columnas)
+    crear_tabla_longitudes(engine , 'tbl_ope_nt_trt_medicamentos_2025', longitudes_max_columnas)
 
     actualizar_datos_oracle(engine, df, 'tbl_ope_nt_trt_medicamentos_2025')
-
-def quitar_acentos(texto: str) -> str:
-    return unidecode(texto)
-
 
 if __name__ == '__main__':
     ruta_trt = Path(filedialog.askopenfilename())

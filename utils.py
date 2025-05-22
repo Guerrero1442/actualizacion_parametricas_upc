@@ -1,7 +1,8 @@
 from pathlib import Path
 from tkinter import Tk, filedialog
-
+import yaml
 from config import OPCIONES_PERMITIDAS
+
 
 def seleccionar_archivo(titulo: str, directorio_inicial: Path, extension: str, tipos: list[tuple[str,str]]) -> Path:
     root = Tk()
