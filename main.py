@@ -61,11 +61,8 @@ def ejecutar_funcion_parametrica(parametrica):
     
     if callable(funcion_a_ejecutar):
         print(f'Actualizando {nombre_parametrica}...')
-        try:
-            funcion_a_ejecutar()
-            print(f'Actualización de {nombre_parametrica} completada.')
-        except Exception as e:
-            print(f'Error al actualizar {nombre_parametrica}: {e}')
+        funcion_a_ejecutar()
+        print(f'Actualización de {nombre_parametrica} completada.')
     else:
         print(f'No se encontró la función para {funcion_a_ejecutar}.')
 

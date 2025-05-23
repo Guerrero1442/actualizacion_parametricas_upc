@@ -86,7 +86,7 @@ def creacion_tabla_actualizada(engine, df: pd.DataFrame, tabla: str, periodo: st
     
 def insertar_datos_oracle(engine, tabla: str, df: pd.DataFrame) -> None:
     columnas = df.columns.tolist()
-    columnas_sql = ",".join(columnas)
+    columnas_sql = ",".join([f'"{col}"' for col in columnas])
     placeholders = ", ".join([f':{i+1}' for i in range(len(columnas))])
     
     sql = f"INSERT INTO {tabla} ({columnas_sql}) VALUES ({placeholders})"

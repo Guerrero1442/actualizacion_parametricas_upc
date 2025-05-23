@@ -1,12 +1,8 @@
 import pathlib
 import tempfile
-from tkinter import filedialog
 import zipfile
 import logging
-
 import pandas as pd
-from sqlalchemy import create_engine
-
 from database.operaciones_bdoracle import actualizar_datos_oracle, conectar_base_oracle, creacion_tabla_actualizada, obtener_datos_oracle
 from utils import seleccionar_archivo
 
@@ -37,6 +33,46 @@ carpeta_inicial = pathlib.Path(
 
 carpeta_regionales = pathlib.Path(
     r'G:\.shortcut-targets-by-id\1wT-pRaNOECz6KC5hndveeLOIGY381o4T\Alteryx\Proyectos\154._Tableros_RIPS\03.Salidas\_Tb_Regiones_.csv')
+
+
+def ajustar_regionales(df_regionales: pd.DataFrame) -> pd.DataFrame:
+    
+    df_regionales = df_regionales.copy()
+    # Preparacion para cruce de regionales
+    df_regionales['regional_adaptada'] = df_regionales['Regional'].str.replace(
+        ' ', '_', 1)
+    df_regionales['nombre_region'] = df_regionales['regional_adaptada'].str.split(
+        pat=' ', n=1).str[1]
+
+    # Mantener unicos por nombre de regional y regional adaptada
+    df_regionales.drop_duplicates(
+        subset=['nombre_region', 'regional_adaptada'], inplace=True)
+
+    return df_regionales
+
+def crear_columnas_nuevas(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    df = df.assign(
+        AVICENA = '',
+        MUNICIPIO_AUTORIZADO = '',
+        CODIGO_SUCURSAL23 = df['CODIGO SUCURSAL'].copy(),
+        NIT2 = df['TIPO ID'].str.slice(0, 1) + df['NUM ID'],
+        COD_HABILITACION = df['COD HABILITACION SUCURSAL'] + df['HABILITACIÓN SEDE SUCURSAL']
+    )
+    
+    df.drop(columns=['HABILITACIÓN SEDE SUCURSAL', 'COD HABILITACION SUCURSAL', 'TIPO ID'], inplace=True)
+
+    return df 
+
+def limpiar_formatear_columnas(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    
+    df['TIPO PERSONA'] = df['TIPO PERSONA'].str.upper()
+    
+    for col in df.select_dtypes(include=['object']).columns:
+        df[col] = df[col].str.strip().str.replace(',', '', regex=False)
+        
+    return df
 
 
 def actualizar_prestadores() -> None:
@@ -82,48 +118,36 @@ def actualizar_prestadores() -> None:
                 if archivo is None:
                     logging.error(
                         f'No se encontró ningún archivo .xlsx en el ZIP')
+                    return
                 else:
                     logging.info(f'Leyendo archivo {archivo}')
                     df_prestadores = pd.read_excel(archivo, sheet_name='E.P.S Sanitas',
                                                    skiprows=2, dtype='str', usecols=COLUMNAS_PRESTADORES)
             except Exception as e:
-                logging.error(f'Error al leer el archivo de prestadores: {e}')
+                logging.error(f'Error al leer el archivo de prestadores: {e}, no se puede continuar')
+                return
 
     try:
         df_regionales = pd.read_csv(carpeta_regionales, sep='|', dtype='str')
     except FileNotFoundError:
-        logging.error(f'No se encontró el archivo de regionales en {carpeta_regionales}')
+        logging.error(f'No se encontró el archivo de regionales en {carpeta_regionales}, no se puede continuar')
+        return
     except Exception as e:
-        logging.error(f'Error al leer el archivo de regionales: {e}')
+        logging.error(f'Error al leer el archivo de regionales: {e}, no se puede continuar')
+        return 
 
-    # Preparacion para cruce de regionales
-    df_regionales['regional_adaptada'] = df_regionales['Regional'].str.replace(
-        ' ', '_', 1)
-    df_regionales['nombre_region'] = df_regionales['regional_adaptada'].str.split(
-        pat=' ', n=1).str[1]
 
-    # Mantener unicos por nombre de regional y regional adaptada
-    df_regionales.drop_duplicates(
-        subset=['nombre_region', 'regional_adaptada'], inplace=True)
+    df_regionales = (
+        ajustar_regionales(df_regionales)
+    )
+    
 
     # Cruce de regionales con prestadores
-    df_prestadores = pd.merge(df_prestadores, df_regionales[[
+    df_prestadores_cruzado = pd.merge(df_prestadores, df_regionales[[
                               'regional_adaptada', 'nombre_region']], left_on='REGIONAL', right_on='nombre_region', how='inner')
-    df_prestadores.drop(columns=['nombre_region', 'REGIONAL'], inplace=True)
-    df_prestadores.rename(
-        columns={'regional_adaptada': 'REGIONAL'}, inplace=True)
+    df_prestadores_cruzado.drop(columns=['nombre_region', 'REGIONAL'], inplace=True)
 
-    # Procesamiento prestadores
-    df_prestadores['CODIGO SUCURSAL23'] = df_prestadores['CODIGO SUCURSAL']
-    df_prestadores['AVICENA'] = ''
-    df_prestadores['NIT2'] = df_prestadores['TIPO ID'].str.slice(
-        0, 1) + df_prestadores['NUM ID']
-    df_prestadores['MUNICIPIO AUTORIZADO'] = ''
-    df_prestadores['COD_HABILITACION'] = df_prestadores['COD HABILITACION SUCURSAL'] + df_prestadores['HABILITACIÓN SEDE SUCURSAL']
 
-    # Eliminar columnas no necesarias
-    df_prestadores.drop(columns=['HABILITACIÓN SEDE SUCURSAL',
-                        'COD HABILITACION SUCURSAL', 'TIPO ID'], inplace=True)
     # Define el nombre de las columnas
     column_renames = {
         "FORMA CONTRATACION": "RELACION EPS",
@@ -134,32 +158,36 @@ def actualizar_prestadores() -> None:
         "CIUDAD": "COD_CIUDAD",
         "DESCRIPCION CIUDAD": "CIUDAD",
         "DESCRIPCION ESPECIALIDAD": "GRUPO_SERVICIO",
-        "ESTADO": "Estado Actual",
+        "ESTADO": "ESTADO_ACTUAL",
         "FECHA INICIO CONVENIO": "INICIO_CONTRATO",
         "FECHA FIN CONVENIO": "FIN_VIGENCIA",
         "COD_HABILITACION": "CODIGO DE HABILITACION2",
-    }
-        
-    df_prestadores.rename(columns=column_renames, inplace=True)
+        "MUNICIPIO_AUTORIZADO": "MUNICIPIO AUTORIZADO",
+        "CODIGO_SUCURSAL23": "CODIGO SUCURSAL23",
+        "regional_adaptada": "REGIONAL"
+    }        
     
-    # limpieza columnas
-    df_prestadores['TIPO_PERSONA'] = df_prestadores['TIPO_PERSONA'].str.upper()
+    df_prestadores_procesado = (
+        df_prestadores_cruzado
+        .pipe(crear_columnas_nuevas)
+        .pipe(limpiar_formatear_columnas)
+        .rename(columns=column_renames)
+        .rename(columns=str.upper)
+    )
     
-    # renombrar columnas a lower case cuando la columna no tiene espacios
-    df_prestadores.columns = [col.lower() if ' ' not in col else col for col in df_prestadores.columns]
-    
-    creacion_tabla_actualizada(engine, df_prestadores, NOMBRE_TABLA_PRESTADORES, periodo)
+    creacion_tabla_actualizada(engine, df_prestadores_procesado, NOMBRE_TABLA_PRESTADORES, periodo)
     
     # obtener universo prestadores
     df_universo_prestadores = obtener_datos_oracle(engine, NOMBRE_TABLA_PRESTADORES)
     
-    # poner marca df_universo_prestadores['Estado Actual'] = 'FINALIZADO' si no se encuentra en df_prestadores
-    df_universo_prestadores.loc[~df_universo_prestadores['nit'].isin(df_prestadores['nit']), 'Estado Actual'] = 'FINALIZADO'
-    
-    df_universo_prestadores_finalizados = df_universo_prestadores.loc[df_universo_prestadores['Estado Actual'] == 'FINALIZADO']
+    df_universo_prestadores.rename(columns= str.upper, inplace=True)
 
+    # poner marca df_universo_prestadores['Estado Actual'] = 'FINALIZADO' si no se encuentra en df_prestadores_procesado
+    df_universo_prestadores.loc[~df_universo_prestadores['NIT'].isin(df_prestadores_procesado['NIT']), 'ESTADO_ACTUAL'] = 'FINALIZADO'
     
-    df_universo_prestadores_completos = pd.concat([df_prestadores, df_universo_prestadores_finalizados], ignore_index=True)
+    df_universo_prestadores_finalizados = df_universo_prestadores.loc[df_universo_prestadores['ESTADO_ACTUAL'] == 'FINALIZADO']
+    
+    df_universo_prestadores_completos = pd.concat([df_prestadores_procesado, df_universo_prestadores_finalizados], ignore_index=True)
     
     df_universo_prestadores_completos.drop_duplicates(inplace=True)
 
