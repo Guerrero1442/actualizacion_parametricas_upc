@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import logging
 from sqlalchemy import create_engine
-from database.operaciones_bdoracle import conectar_base_oracle, actualizar_datos_oracle
+from database.operaciones_bdoracle import conectar_base_oracle, actualizar_datos_oracle, obtener_datos_oracle
 from utils import seleccionar_archivo
 
 def definir_cobertura_cups(df: pd.DataFrame, column: str) -> pd.DataFrame:
@@ -20,10 +20,27 @@ def definir_cobertura_cups(df: pd.DataFrame, column: str) -> pd.DataFrame:
 
     return df
 
+def actualizar_cups_homologo(df: pd.DataFrame, anio: int) -> pd.DataFrame:
+    df = df.copy()
+    
+    engine = conectar_base_oracle()
+        
+    df_cups_anio_anterior = obtener_datos_oracle(engine, f'tbl_suf_cups_{anio - 1}')
+    
+    df_cups_anio_anterior.rename(columns=lambda x: x.upper(), inplace=True)
+
+    df_cups_anio_anterior.dropna(subset=['CUPS_HOMOLOGO_PRIMERA_VEZ'], inplace=True)
+    
+    diccionario_cups = df_cups_anio_anterior.set_index('CODIGO')['CUPS_HOMOLOGO_PRIMERA_VEZ']
+    
+    df['CUPS_HOMOLOGO_PRIMERA_VEZ'] = df['CODIGO'].map(diccionario_cups)
+        
+    return df
 
 def procesar_archivo_vigencia(engine, archivo: pathlib.Path, anio_actualizado: str) -> None:
     nombre_archivo: str = archivo.name
 
+    # TBL_OPE_SUF_INSUMOS_[AÑO]
     if nombre_archivo.startswith(f'{anio_actualizado}_INSUMOS'):
         logging.info(f'Procesando archivo {nombre_archivo}')
         df_insumos = pd.read_excel(archivo, skiprows=4, engine='pyxlsb')
@@ -38,6 +55,7 @@ def procesar_archivo_vigencia(engine, archivo: pathlib.Path, anio_actualizado: s
         else:
             logging.error(f'El archivo {nombre_archivo} contiene códigos duplicados')
 
+    # TBL_OPE_SUF_CIE10_[AÑO]
     elif nombre_archivo.startswith(f'{anio_actualizado}_TABLA DE REFERENCIA CIE-10'):
         logging.info(f'Procesando archivo {nombre_archivo}')
         df_cie10 = pd.read_excel(archivo, skiprows=4,)
@@ -53,7 +71,11 @@ def procesar_archivo_vigencia(engine, archivo: pathlib.Path, anio_actualizado: s
         else:
             logging.error(f'El archivo {nombre_archivo} contiene códigos duplicados')
 
+
+    # TBL_SUF_CUPS_[AÑO]
     elif nombre_archivo.startswith(f'{anio_actualizado}_TR_CUPS') and 'COBERTURA' in nombre_archivo:
+
+        
         logging.info(f'Procesando archivo {nombre_archivo}')
         df_cups = pd.read_excel(archivo, skiprows=3, engine='pyxlsb')
         print(f'Columnas archivo {nombre_archivo}: {df_cups.columns}')
@@ -64,6 +86,7 @@ def procesar_archivo_vigencia(engine, archivo: pathlib.Path, anio_actualizado: s
                 .drop(columns=['AÑO_VIGENCIA', ' '], errors='ignore')
                 .rename(columns = {'CÓDIGO': 'CODIGO', 'DX_RELACIONADO': 'CIE_10 RELACIONADOS', 'DESCRIPCIÓN': 'DESCRIPCION'}) 
                 .pipe(definir_cobertura_cups, column='COBERTURA')
+                .pipe(actualizar_cups_homologo, anio=int(anio_actualizado))
             )
             
             actualizar_datos_oracle(
@@ -71,6 +94,7 @@ def procesar_archivo_vigencia(engine, archivo: pathlib.Path, anio_actualizado: s
         else:
             logging.error(f'El archivo {nombre_archivo} contiene códigos duplicados')
 
+    # TBL_OPE_SUF_REPS_[AÑO]
     elif nombre_archivo.startswith(f'{anio_actualizado}_REPS'):
         logging.info(f'Procesando archivo {nombre_archivo}')
         if nombre_archivo.endswith('xlsx'):
