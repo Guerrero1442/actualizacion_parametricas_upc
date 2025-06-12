@@ -49,6 +49,6 @@ def leer_config(ruta_config: str = 'config\\config.yaml') -> dict:
     Returns:
         dict: Diccionario con la configuración leída.
     """
-    with open(ruta_config, 'r') as file:
+    with open(ruta_config, 'r', encoding='utf-8') as file:
         config = yaml.safe_load(file)
     return config

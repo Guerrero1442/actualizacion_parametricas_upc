@@ -15,7 +15,7 @@ FUNCIONES_DISPONIBLES = {
     'actualizar_trt_medicamentos': actualizar_trt_medicamentos
 }
 
-def obtener_parametrica_seleccionada(config: dict) -> str | None:
+def obtener_parametrica_seleccionada(config: dict) -> dict | None:
     if 'parametricas' not in config:
         print("No se encontró la configuración de paramétricas.")
         return
@@ -45,7 +45,7 @@ def obtener_parametrica_seleccionada(config: dict) -> str | None:
 
     return parametricas_map.get(parametrica_seleccionada)
 
-def ejecutar_funcion_parametrica(parametrica):
+def ejecutar_funcion_parametrica(parametrica: dict) -> None:
     if not parametrica:
         print("No se recibio la parametrica.")
         return
@@ -61,7 +61,7 @@ def ejecutar_funcion_parametrica(parametrica):
     
     if callable(funcion_a_ejecutar):
         print(f'Actualizando {nombre_parametrica}...')
-        funcion_a_ejecutar()
+        funcion_a_ejecutar(parametrica)
         print(f'Actualización de {nombre_parametrica} completada.')
     else:
         print(f'No se encontró la función para {funcion_a_ejecutar}.')
