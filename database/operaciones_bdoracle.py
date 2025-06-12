@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from sqlalchemy import create_engine, exc, inspect, text
 import yaml
+from scripts.limpieza_archivo import sacar_longitudes_max_columnas
 
 # Constantes
 CONFIG_PATH = 'config/database.yaml'
@@ -43,46 +44,18 @@ def conectar_base_oracle():
 def actualizar_datos_oracle(engine, df: pd.DataFrame, tabla: str) -> None:
     with engine.connect() as connection:
         try:
-            logging.info(f'Truncando tabla {tabla}')
-            connection.execute(text(f"TRUNCATE TABLE {tabla}"))
+            with connection.begin(): # Iniciar una transaccion ()
+                logging.info(f'Truncando tabla {tabla}')
+                connection.execute(text(f"TRUNCATE TABLE {tabla}"))
+                
+                logging.info(f'Insertando {df.shape[0]} registros en la tabla {tabla}')
+                df.to_sql(tabla, 
+                          con=engine, 
+                          if_exists='append',
+                           index=False)
         except Exception as e:
             logging.warning(f'error al truncar la tabla {tabla} {e}')
-        df.to_sql(tabla, con=engine, if_exists='append', index=False)
-        connection.close()
     logging.info(f'Se actualizaron {df.shape[0]} registros en la tabla {tabla}')
-
-
-def creacion_tabla_actualizada(engine, df: pd.DataFrame, tabla: str, periodo: str) -> None:
-    periodo_anterior = datetime.strptime(periodo, '%Y%m')
-    periodo_anterior = periodo_anterior - relativedelta(months=1)
-    periodo_anterior = periodo_anterior.strftime('%Y%m')
-    nombre_tabla = tabla.lower() + '_' + periodo
-
-    with engine.connect() as connection:
-        inspector = inspect(connection)
-        
-        # Eliminar tabla si existe
-        try:
-            if inspector.has_table(nombre_tabla):
-                logging.info(f'La tabla {nombre_tabla} existe. Eliminándola...')
-                connection.execute(text(f"DROP TABLE {nombre_tabla}"))
-            else:
-                logging.info(f'La tabla {nombre_tabla} no existe. No se requiere eliminación.')
-        except Exception as e:
-            logging.warning(f'error al verificar o eliminar la tabla {nombre_tabla} {e}')
-
-        # Crear copia de la tabla del periodo anterior
-        try:
-            logging.info(f'Creando tabla {nombre_tabla}')
-            connection.execute(text(f"""          
-                CREATE TABLE {nombre_tabla} AS
-                SELECT * FROM {tabla.lower()}_{periodo_anterior} WHERE 1=0
-            """))
-        except Exception as e:
-            logging.warning(f'error al crear la tabla {nombre_tabla} {e}')
-            
-        
-    insertar_datos_oracle(engine, nombre_tabla, df)
     
 def insertar_datos_oracle(engine, tabla: str, df: pd.DataFrame) -> None:
     columnas = df.columns.tolist()
@@ -105,8 +78,7 @@ def insertar_datos_oracle(engine, tabla: str, df: pd.DataFrame) -> None:
                 conn.connection.commit()
             logging.info(f'Se insertaron {len(tuples_values)} registros en la tabla {tabla}')  
         except Exception as e:
-            logging.warning(f'Error al insertar los datos en la tabla {tabla} {e}')      
-            
+            logging.warning(f'Error al insertar los datos en la tabla {tabla} {e}')       
             
 def es_nombre_tabla_valido(nombre_tabla: str, max_longitud: int = 128) -> bool:
     """
@@ -152,11 +124,15 @@ def es_nombre_tabla_valido(nombre_tabla: str, max_longitud: int = 128) -> bool:
     return True
 
 
-def crear_tabla_longitudes(engine, nombre_tabla: str, longitud_columnas) -> None:
+def crear_tabla_longitudes(engine, nombre_tabla: str, df, periodo: str | None = None) -> None:
+
+    longitud_columnas = sacar_longitudes_max_columnas(df)
+
+    if periodo:
+        nombre_tabla = f"{nombre_tabla.lower()}_{periodo}"
 
     if not es_nombre_tabla_valido(nombre_tabla):
         logging.warning(f'El nombre de la tabla {nombre_tabla} no es válido. No se creará la tabla.')
-        return
 
     columnas_definicion = []
     for columna, longitud in longitud_columnas.items():
@@ -168,36 +144,32 @@ def crear_tabla_longitudes(engine, nombre_tabla: str, longitud_columnas) -> None
     
     try:
         with engine.connect() as connection:
-            # --- Manejo de DROP TABLE (opcional) ---
-            inspector = inspect(connection) # O inspect(engine)
-            if inspector.has_table(nombre_tabla): # (Para SQLAlchemy 1.4+)
+            inspector = inspect(connection)
+            if inspector.has_table(nombre_tabla):
                 logging.info(f'Tabla {nombre_tabla} existe. Eliminándola...')
                 try:
-                    # En Oracle <23c, no hay "IF EXISTS" directo en DROP TABLE.
-                    # Una alternativa es simplemente ejecutar DROP y capturar error si no existe.
                     connection.execute(text(f"DROP TABLE {nombre_tabla}")) 
-                    # DDL usualmente auto-commitea en Oracle, pero si estás en una transacción explícita
-                    # (connection.begin()), necesitarías connection.commit() aquí para el DROP.
-                    # Sin embargo, para DDL simple, el autocommit de Oracle suele ser suficiente.
                     logging.info(f'Tabla {nombre_tabla} eliminada.')
-                except Exception as e_drop: # Ser más específico con la excepción si es posible
+                except Exception as e_drop:
                     logging.warning(f'Error al eliminar la tabla {nombre_tabla}: {e_drop}')
             else:
                 logging.info(f'La tabla {nombre_tabla} no existe. No se requiere eliminación.')
+
 
             # --- Creación de la tabla ---
             logging.info(f"Creando tabla {nombre_tabla} con sentencia: {sentencia_create_sql}")
             try:
                 connection.execute(text(sentencia_create_sql))
-                # Como antes, DDL suele auto-commitear. Si iniciaste transacción con connection.begin(), necesitarás:
-                # connection.commit() 
                 logging.info(f'Tabla {nombre_tabla} creada exitosamente.')
             except Exception as e_create: # Ser más específico con la excepción si es posible
                 logging.error(f'Error al crear la tabla {nombre_tabla}: {e_create}')
-                # Podrías querer relanzar la excepción aquí si es un error crítico: raise
 
+            
     except Exception as e_conn: # Error de conexión o un error no capturado arriba
         logging.error(f'Error general durante la operación de tabla {nombre_tabla}: {e_conn}')
+
+    # insertando datos a la tabla creada
+    insertar_datos_oracle(engine, nombre_tabla, df)
 
     
 def obtener_datos_oracle(engine, tabla: str) -> pd.DataFrame:

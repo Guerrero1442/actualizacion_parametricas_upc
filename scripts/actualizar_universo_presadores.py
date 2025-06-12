@@ -3,37 +3,9 @@ import tempfile
 import zipfile
 import logging
 import pandas as pd
-from database.operaciones_bdoracle import actualizar_datos_oracle, conectar_base_oracle, creacion_tabla_actualizada, obtener_datos_oracle
+from database.operaciones_bdoracle import actualizar_datos_oracle, conectar_base_oracle, crear_tabla_longitudes, obtener_datos_oracle
 from utils import seleccionar_archivo
-
-# Constantes
-NOMBRE_TABLA_PRESTADORES = 'tbl_ope_universo_prestadores'
-COLUMNAS_PRESTADORES = [
-    'DESCRIPCION PLAN',
-    'FORMA CONTRATACION',
-    'NUM ID',
-    'TIPO ID',
-    'TIPO PERSONA',
-    'CODIGO SUCURSAL',
-    'NOMBRE SUCURSAL',
-    'CIUDAD',
-    'DESCRIPCION CIUDAD',
-    'DEPARTAMENTO',
-    'DESCRIPCION ESPECIALIDAD',
-    'ESTADO',
-    'TIPO CONVENIO',
-    'COD HABILITACION SUCURSAL',
-    'HABILITACIÓN SEDE SUCURSAL',
-    'FECHA INICIO CONVENIO',
-    'FECHA FIN CONVENIO',
-    'REGIONAL']
-
-carpeta_inicial = pathlib.Path(
-    r'G:\Mi unidad\Mis_Actividades\Actualizacion Parametricas UPC\PRESTADORES')
-
-carpeta_regionales = pathlib.Path(
-    r'G:\.shortcut-targets-by-id\1wT-pRaNOECz6KC5hndveeLOIGY381o4T\Alteryx\Proyectos\154._Tableros_RIPS\03.Salidas\_Tb_Regiones_.csv')
-
+ 
 
 def ajustar_regionales(df_regionales: pd.DataFrame) -> pd.DataFrame:
     
@@ -75,7 +47,7 @@ def limpiar_formatear_columnas(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def actualizar_prestadores() -> None:
+def actualizar_prestadores(config: dict) -> None:
     """
     Actualiza la información de los prestadores en la base de datos para un período específico.
     Esta función solicita al usuario un período de actualización en formato YYYYMM, valida la entrada y procesa 
@@ -121,16 +93,21 @@ def actualizar_prestadores() -> None:
                     return
                 else:
                     logging.info(f'Leyendo archivo {archivo}')
-                    df_prestadores = pd.read_excel(archivo, sheet_name='E.P.S Sanitas',
-                                                   skiprows=2, dtype='str', usecols=COLUMNAS_PRESTADORES)
+                    df_prestadores = pd.read_excel(archivo, sheet_name= config.get('hoja_archivo', 'E.P.S Sanitas'),
+                                                   skiprows=2, dtype='str', usecols=config.get('columnas_prestadores'))
             except Exception as e:
                 logging.error(f'Error al leer el archivo de prestadores: {e}, no se puede continuar')
                 return
 
+    ruta_archivo_regionales = config.get('archivo_regionales')
+    if ruta_archivo_regionales is None:
+        logging.error('La clave "archivo_regionales" no está configurada en el diccionario recibido o es None, no se puede continuar')
+        return
+
     try:
-        df_regionales = pd.read_csv(carpeta_regionales, sep='|', dtype='str')
+        df_regionales = pd.read_csv(ruta_archivo_regionales, sep='|', dtype='str')
     except FileNotFoundError:
-        logging.error(f'No se encontró el archivo de regionales en {carpeta_regionales}, no se puede continuar')
+        logging.error(f'No se encontró el archivo de regionales en {ruta_archivo_regionales}, no se puede continuar')
         return
     except Exception as e:
         logging.error(f'Error al leer el archivo de regionales: {e}, no se puede continuar')
@@ -175,13 +152,15 @@ def actualizar_prestadores() -> None:
         .rename(columns=str.upper)
     )
     
-    creacion_tabla_actualizada(engine, df_prestadores_procesado, NOMBRE_TABLA_PRESTADORES, periodo)
+    nombre_tabla = config.get('tabla_oracle', 'tbl_ope_universo_prestadores')
+    
+    crear_tabla_longitudes(engine, nombre_tabla, df_prestadores_procesado, periodo)    
     
     # obtener universo prestadores
-    df_universo_prestadores = obtener_datos_oracle(engine, NOMBRE_TABLA_PRESTADORES)
+    df_universo_prestadores = obtener_datos_oracle(engine, nombre_tabla)
     
     df_universo_prestadores.rename(columns= str.upper, inplace=True)
-
+    
     # poner marca df_universo_prestadores['Estado Actual'] = 'FINALIZADO' si no se encuentra en df_prestadores_procesado
     df_universo_prestadores.loc[~df_universo_prestadores['NIT'].isin(df_prestadores_procesado['NIT']), 'ESTADO_ACTUAL'] = 'FINALIZADO'
     
@@ -190,9 +169,17 @@ def actualizar_prestadores() -> None:
     df_universo_prestadores_completos = pd.concat([df_prestadores_procesado, df_universo_prestadores_finalizados], ignore_index=True)
     
     df_universo_prestadores_completos.drop_duplicates(inplace=True)
+    
+    df_universo_prestadores_completos.to_excel(
+        f'{nombre_tabla}_{periodo}.xlsx', index=False
+    )
 
-    actualizar_datos_oracle(engine, df_universo_prestadores_completos, NOMBRE_TABLA_PRESTADORES)
+    actualizar_datos_oracle(engine, df_universo_prestadores_completos, nombre_tabla)
+    
+if __name__ == "__main__":
+    config_prueba = {
+        "tabla_oracle": "tbl_ope_universo_prestadores",
+        "archivo_regionales": "G:\\.shortcut-targets-by-id\\1wT-pRaNOECz6KC5hndveeLOIGY381o4T\\Alteryx\\Proyectos\\154._Tableros_RIPS\\03.Salidas\\_Tb_Regiones_.csv"
+    }
 
-
-if __name__ == '__main__':
-    actualizar_prestadores()
+    actualizar_prestadores(config_prueba)

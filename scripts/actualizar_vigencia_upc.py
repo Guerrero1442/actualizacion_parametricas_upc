@@ -1,11 +1,9 @@
 import tempfile
 import pathlib
-from tkinter import filedialog
 import zipfile
 import numpy as np
 import pandas as pd
 import logging
-from sqlalchemy import create_engine
 from database.operaciones_bdoracle import conectar_base_oracle, actualizar_datos_oracle, obtener_datos_oracle
 from utils import seleccionar_archivo
 
@@ -37,26 +35,35 @@ def actualizar_cups_homologo(df: pd.DataFrame, anio: int) -> pd.DataFrame:
         
     return df
 
-def procesar_archivo_vigencia(engine, archivo: pathlib.Path, anio_actualizado: str) -> None:
+def procesar_archivo_vigencia(engine, archivo: pathlib.Path, anio_actualizado: str, config: dict) -> None:
     nombre_archivo: str = archivo.name
-
+    tablas_base = config.get('tablas_base')
+    
+    if not tablas_base:
+        logging.error('No se encontraron tablas base en la configuración')
+        return
+    
     # TBL_OPE_SUF_INSUMOS_[AÑO]
     if nombre_archivo.startswith(f'{anio_actualizado}_INSUMOS'):
+        tabla_insumos = f"{tablas_base['insumos']}{anio_actualizado}"
         logging.info(f'Procesando archivo {nombre_archivo}')
+
         df_insumos = pd.read_excel(archivo, skiprows=4, engine='pyxlsb')
-        print(f'Columnas archivo {nombre_archivo}: {df_insumos.columns}')
+        
         if codigo_duplicado(df_insumos, 'CÓDIGO') == 0:
             df_insumos_procesados = (
                 df_insumos
                 .drop(columns=['AÑO_VIGENCIA', ' '])
                 .rename(columns={'CÓDIGO': 'CODIGO', 'DESCRIPCIÓN': 'DESCRIPCION'})
             )       
-            actualizar_datos_oracle(engine, df_insumos_procesados, f'tbl_suf_insumos_{anio_actualizado}')
+            actualizar_datos_oracle(engine, df_insumos_procesados, tabla_insumos)
         else:
             logging.error(f'El archivo {nombre_archivo} contiene códigos duplicados')
 
     # TBL_OPE_SUF_CIE10_[AÑO]
     elif nombre_archivo.startswith(f'{anio_actualizado}_TABLA DE REFERENCIA CIE-10'):
+        tabla_cie10 = f"{tablas_base['cie10']}{anio_actualizado}"
+
         logging.info(f'Procesando archivo {nombre_archivo}')
         df_cie10 = pd.read_excel(archivo, skiprows=4,)
         
@@ -67,18 +74,18 @@ def procesar_archivo_vigencia(engine, archivo: pathlib.Path, anio_actualizado: s
                 'VIGENCIA': 'Tabla', 'Codigo': 'CIE10', 'Nombre': 'DESCRIPCIÓN CÓDIGOS DE CUATRO CARACTERES',
                 'EDAD_LIM_INF': 'VALOR_LIM_INF', 'EDAD_LIM_SUP': 'VALOR_LIM_SUP'})
             )
-            actualizar_datos_oracle(engine, df_cie10_procesado, f'tbl_suf_cie10_{anio_actualizado}')
+            actualizar_datos_oracle(engine, df_cie10_procesado, tabla_cie10)
         else:
             logging.error(f'El archivo {nombre_archivo} contiene códigos duplicados')
 
 
     # TBL_SUF_CUPS_[AÑO]
     elif nombre_archivo.startswith(f'{anio_actualizado}_TR_CUPS') and 'COBERTURA' in nombre_archivo:
-
-        
+        tabla_cups = f"{tablas_base['cups']}{anio_actualizado}"
         logging.info(f'Procesando archivo {nombre_archivo}')
+        
         df_cups = pd.read_excel(archivo, skiprows=3, engine='pyxlsb')
-        print(f'Columnas archivo {nombre_archivo}: {df_cups.columns}')
+        
         if codigo_duplicado(df_cups, 'CÓDIGO') == 0:          
             df_cups_procesados = (
                 df_cups
@@ -90,13 +97,15 @@ def procesar_archivo_vigencia(engine, archivo: pathlib.Path, anio_actualizado: s
             )
             
             actualizar_datos_oracle(
-                engine, df_cups_procesados, f'tbl_suf_cups_{anio_actualizado}')
+                engine, df_cups_procesados, tabla_cups)
         else:
             logging.error(f'El archivo {nombre_archivo} contiene códigos duplicados')
 
     # TBL_OPE_SUF_REPS_[AÑO]
     elif nombre_archivo.startswith(f'{anio_actualizado}_REPS'):
+        tabla_reps = f"{tablas_base['reps']}{anio_actualizado}"
         logging.info(f'Procesando archivo {nombre_archivo}')
+         
         if nombre_archivo.endswith('xlsx'):
             df_reps = pd.read_excel(archivo, skiprows=3)
         else:
@@ -110,12 +119,12 @@ def procesar_archivo_vigencia(engine, archivo: pathlib.Path, anio_actualizado: s
             )
             
             actualizar_datos_oracle(
-                engine, df_reps_procesado, f'tbl_suf_reps_{anio_actualizado}')
+                engine, df_reps_procesado, tabla_reps)
         else:
             logging.error(f'El archivo {nombre_archivo} contiene códigos de habilitacion duplicados')
 
 
-def actualizar_vigencia_upc() -> None:
+def actualizar_vigencia_upc(config: dict) -> None:
     zip_path = seleccionar_archivo(titulo="Seleccione el archivo ZIP de la vigencia UPC", 
                                    extension='.zip', 
                                    tipos=[("ZIP files", "*.zip")])
@@ -132,7 +141,7 @@ def actualizar_vigencia_upc() -> None:
                         archivo for archivo in archivos]
 
             for archivo in archivos:
-                procesar_archivo_vigencia(engine, archivo, anio_actualizado)
+                procesar_archivo_vigencia(engine, archivo, anio_actualizado, config)
 
     logging.info('Proceso de actualización de vigencia UPC finalizado')
 
@@ -142,4 +151,12 @@ def codigo_duplicado(df: pd.DataFrame, columna: str) -> int:
 
 
 if __name__ == '__main__':
-    actualizar_vigencia_upc()
+    config_prueba = {
+        "tablas_base": {
+            "insumos": "tbl_suf_insumos_",
+            "cie10": "tbl_suf_cie10_",
+            "cups": "tbl_suf_cups_",
+            "reps": "tbl_suf_reps_"
+        }
+    }
+    actualizar_vigencia_upc(config_prueba)

@@ -1,7 +1,5 @@
 import logging
-import pathlib
 import pandas as pd
-from tkinter import filedialog
 from database.operaciones_bdoracle import conectar_base_oracle, actualizar_datos_oracle
 from utils import seleccionar_archivo
 
@@ -83,7 +81,7 @@ def transformar_fecha_novedad(df, column_name:str='Fecha Novedad', format:str='%
 def eliminar_registros_duplicados(df, column_name:str='Codigo OSI', sort_by:str='Fecha Novedad', ruta_nt_unicos=None):
     df = df.copy()
     codigos_duplicados = df.loc[df.duplicated(subset=[column_name])][column_name].unique()
-    logging.info(f'Hay {len(codigos_duplicados)} {column_name} OSI duplicados en el archivo {ruta_nt_unicos.name} se tomara el que tenga fecha novedad mas reciente')
+    logging.info(f'Hay {len(codigos_duplicados)} {column_name} OSI duplicados se tomara el que tenga fecha novedad mas reciente')
     return df.sort_values(by=[column_name, sort_by], ascending=[False, True]).drop_duplicates(subset=[column_name], keep='last')
 
 def formatear_fecha(df, column_name:str='Fecha Novedad', format:str='%Y-%m-%d'):
@@ -108,7 +106,7 @@ def renombrar_columnas(df):
     df.rename(columns=columnas_renombradas, inplace=True)
     return df    
 
-def actualizar_nt_unicos():
+def actualizar_nt_unicos(config: dict) -> None:
     engine = conectar_base_oracle()
     
     ruta_nt_unicos = seleccionar_archivo(
@@ -129,9 +127,14 @@ def actualizar_nt_unicos():
                     .pipe(eliminar_columnas, ['#', '-', 'CONSULTA VIRTUAL', 'TELEXPERTICIA'])
                     .pipe(renombrar_columnas)
                 )
+    
+    nombre_tabla_nt_unicos = config.get('tabla_actual', 'tbl_ope_nt_unicos_2025')
 
     actualizar_datos_oracle(engine, df_limpio, nombre_tabla_nt_unicos)
 
 
 if __name__ == '__main__':
-    actualizar_nt_unicos()
+    config_prueba = {
+        "tabla_oracle": "tbl_ope_nt_unicos_2025"
+    }
+    actualizar_nt_unicos(config_prueba)

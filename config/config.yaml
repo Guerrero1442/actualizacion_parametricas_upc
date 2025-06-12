@@ -1,11 +1,52 @@
 parametricas:
   - nombre: "universo_prestadores"
-    funcion: "actualizar_universo_presadores"
-  - nombre: "vigencia_upc"
-    funcion: "actualizar_vigencia_upc"
+    funcion: "actualizar_universo_presadores" # En tu main.py el nombre de la función es actualizar_prestadores, es mejor estandarizar.
+    tabla_oracle: "tbl_ope_universo_prestadores"
+    archivo_regionales: "G:\\.shortcut-targets-by-id\\1wT-pRaNOECz6KC5hndveeLOIGY381o4T\\Alteryx\\Proyectos\\154._Tableros_RIPS\\03.Salidas\\_Tb_Regiones_.csv"
+    hoja_archivo: "E.P.S Sanitas"
+    columnas_prestadores:
+      - "DESCRIPCION PLAN"
+      - "FORMA CONTRATACION"
+      - "NUM ID"
+      - "TIPO ID"
+      - "TIPO PERSONA"
+      - "CODIGO SUCURSAL"
+      - "NOMBRE SUCURSAL"
+      - "CIUDAD"
+      - "DESCRIPCION CIUDAD"
+      - "DEPARTAMENTO"
+      - "DESCRIPCION ESPECIALIDAD"
+      - "ESTADO"
+      - "TIPO CONVENIO"
+      - "COD HABILITACION SUCURSAL"
+      - "HABILITACIÓN SEDE SUCURSAL"
+      - "FECHA INICIO CONVENIO"
+      - "FECHA FIN CONVENIO"
+      - "REGIONAL"
+
   - nombre: "usuarios_compensados"
     funcion: "actualizar_compensados"
-  - nombre: "nt_unicos"
-    funcion: "actualizar_nt_unicos"
+    tabla_beneficiario: "TBL_OPE_COMPENSADO_BEN"
+    tabla_cotizante: "TBL_OPE_COMPENSADO_COT"
+    tabla_liquidado: "EPSS05LIQUIDACION"
+    # Patrones para identificar los archivos
+    archivos_beneficiario: ["CORRECCION_BEN", "AB4023"]
+    archivos_cotizante: ["CORRECCION_COT", "AC4023"]
+    archivos_liquidado: ["EPSS05RESTITUCION", "EPSS05LIQUIDACION"]
+
   - nombre: "trt"
     funcion: "actualizar_trt_medicamentos"
+    tabla_base: "tbl_ope_nt_trt_medicamentos_"
+    tabla_actual: "tbl_ope_nt_trt_medicamentos_2025"
+
+  - nombre: "nt_unicos"
+    funcion: "actualizar_nt_unicos"
+    tabla_actual: "tbl_ope_nt_unicos_2025"
+
+  - nombre: "vigencia_upc"
+    funcion: "actualizar_vigencia_upc"
+    tablas_base:
+      insumos: "tbl_suf_insumos_"
+      cie10: "tbl_suf_cie10_"
+      cups: "tbl_suf_cups_"
+      reps: "tbl_suf_reps_"

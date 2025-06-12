@@ -1,15 +1,11 @@
 import logging
-from pathlib import Path
 from unidecode import unidecode
 import pandas as pd
-from tkinter import filedialog
 from database.operaciones_bdoracle import conectar_base_oracle, actualizar_datos_oracle, crear_tabla_longitudes
-from scripts.limpieza_archivo import sacar_longitudes_max_columnas, quitar_espacios, limpiar_texto_columnas
+from scripts.limpieza_archivo import  quitar_espacios, limpiar_texto_columnas
 from utils import seleccionar_archivo
 
-NOMBRE_TABLA_TRT_ORACLE = 'TBL_OPE_NT_TRT_MEDICAMENTOS_'
-
-def actualizar_trt_medicamentos() -> None:
+def actualizar_trt_medicamentos(config: dict) -> None:
     
     engine = conectar_base_oracle()
     ruta_trt = seleccionar_archivo(
@@ -18,7 +14,7 @@ def actualizar_trt_medicamentos() -> None:
         tipos=[("Excel files", "*.xlsx")]
     )
     version_tabla = input('Ingrese el año y la versión de la tabla TRT (por ejemplo, 2024_41): ') 
-    nombre_tabla = f'{NOMBRE_TABLA_TRT_ORACLE}{version_tabla}'.lower()
+    nombre_tabla = f'{config.get('tabla_base', 'tbl_ope_nt_trt_medicamentos_')}{version_tabla}'.lower()
     
     logging.info(f'Actualizando TRT Medicamentos {ruta_trt.name}')
     
@@ -36,15 +32,21 @@ def actualizar_trt_medicamentos() -> None:
         .pipe(quitar_espacios)
     )
 
-    longitudes_max_columnas = sacar_longitudes_max_columnas(df)
     
-    crear_tabla_longitudes(engine ,nombre_tabla, longitudes_max_columnas)
+    crear_tabla_longitudes(engine ,nombre_tabla, df)
     
     actualizar_datos_oracle(engine, df, nombre_tabla)
     
-    crear_tabla_longitudes(engine , 'tbl_ope_nt_trt_medicamentos_2025', longitudes_max_columnas)
+    tabla_anual = config.get('tabla_actual', 'tbl_ope_nt_trt_medicamentos_2025')
+    
+    crear_tabla_longitudes(engine , tabla_anual, df)
 
-    actualizar_datos_oracle(engine, df, 'tbl_ope_nt_trt_medicamentos_2025')
+    actualizar_datos_oracle(engine, df, tabla_anual)
 
 if __name__ == '__main__':     
-    actualizar_trt_medicamentos()
+    config_prueba = {
+        "tabla_base": "TBL_OPE_NT_TRT_MEDICAMENTOS_",
+        "tabla_actual": "tbl_ope_nt_trt_medicamentos_2025"
+    }
+    actualizar_trt_medicamentos(config_prueba)        
+    
